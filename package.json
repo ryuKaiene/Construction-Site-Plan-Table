@@ -1,0 +1,12 @@
+{
+  "name": "koutei-hyou-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public"
+  },
+  "devDependencies": {
+    "wrangler": "^4.107.1"
+  }
+}

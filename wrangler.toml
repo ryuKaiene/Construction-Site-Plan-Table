@@ -1,0 +1,11 @@
+# このファイルは「npx wrangler pages deploy」でCLIからデプロイする場合に使います。
+# ダッシュボードでpublicフォルダをドラッグ＆ドロップする場合は不要です
+# （その場合はダッシュボードのD1バインディング設定を使ってください）。
+name = "koutei-hyou-app"
+pages_build_output_dir = "public"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "koutei-hyou-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
