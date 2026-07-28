@@ -13,7 +13,7 @@
   --blank: #ececec;
   --cell-w: 20px;
   --row-h: 26px;
-  --label-w: 200px;
+  --label-w: 250px;
 }
 
 * { box-sizing: border-box; }
@@ -317,8 +317,44 @@ main {
 .gantt-cell {
   cursor: pointer;
   user-select: none;
+  position: relative;
+  overflow: visible;
 }
 .gantt-cell:hover { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+/* ---------- 作業名ラベル（バー上に重ねて右へはみ出して表示） ---------- */
+.bar-label {
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 1;
+  color: #1a1c22;
+  pointer-events: none;
+  z-index: 3;
+  text-shadow:
+     1px 0 2px #fff, -1px 0 2px #fff,
+     0 1px 2px #fff, 0 -1px 2px #fff;
+}
+
+.label-editor {
+  position: absolute;
+  z-index: 200;
+  width: 260px;
+  padding: 4px 6px;
+  font-size: 12px;
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+}
+
+/* ---------- 階層（大工種 → 中工種 → 作業） ---------- */
+.td-label.lv0 { background: #e8eaee; }
+.td-label.lv1 { background: #f2f3f5; }
+.td-label.lv2 { background: #fafbfc; }
 
 /* ---------- Progress / S-curve ---------- */
 .progress-wrap {
@@ -392,7 +428,9 @@ main {
     page-break-inside: avoid;
   }
   .gantt-scroll { overflow: visible; }
-  :root { --cell-w: 8px; --row-h: 16px; --label-w: 110px; }
+  .row-btn { display: none; }
+  .bar-label { font-size: 7px; }
+  :root { --cell-w: 8px; --row-h: 16px; --label-w: 130px; }
 }
 
 @media (max-width: 700px) {

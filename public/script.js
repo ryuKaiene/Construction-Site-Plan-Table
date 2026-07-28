@@ -7,6 +7,7 @@ const PALETTE = [
   "#4f8ef7", "#f76c6c", "#f7b84f", "#4fd17f", "#a678f2",
   "#f76ccb", "#2ecfcf", "#8a8f98", "#e0c34f", "#222222"
 ];
+const MAX_LEVEL = 2; // 大工種 → 中工種 → 小工種（作業）の3階層
 const META_INPUT_ID = {
   projectName: "f-projectName", orderer: "f-orderer", location: "f-location",
   supervisor: "f-supervisor", contractor: "f-contractor",
@@ -71,12 +72,12 @@ function defaultState() {
       endDate: "2027-03-26"
     },
     items: [
-      { id: uid(), name: "河川土工", bold: false, cells: {} },
-      { id: uid(), name: "護岸工", bold: false, cells: {} },
-      { id: uid(), name: "擁壁護岸工", bold: false, cells: {} },
-      { id: uid(), name: "付帯道路工", bold: false, cells: {} },
-      { id: uid(), name: "構造物撤去工", bold: false, cells: {} },
-      { id: uid(), name: "仮設工", bold: false, cells: {} }
+      { id: uid(), name: "河川土工", bold: true, level: 0, cells: {}, labels: {} },
+      { id: uid(), name: "護岸工", bold: true, level: 0, cells: {}, labels: {} },
+      { id: uid(), name: "擁壁護岸工", bold: true, level: 0, cells: {}, labels: {} },
+      { id: uid(), name: "付帯道路工", bold: true, level: 0, cells: {}, labels: {} },
+      { id: uid(), name: "構造物撤去工", bold: true, level: 0, cells: {}, labels: {} },
+      { id: uid(), name: "仮設工", bold: true, level: 0, cells: {}, labels: {} }
     ],
     progress: { plan: {}, actual: {} }
   };
@@ -192,7 +193,23 @@ function applyOp(op) {
     }
     case "erase": {
       const item = state.items.find((i) => i.id === op.itemId);
-      if (item) delete item.cells[op.date];
+      if (item) {
+        delete item.cells[op.date];
+        delete item.labels[op.date];
+      }
+      break;
+    }
+    case "setLabel": {
+      const item = state.items.find((i) => i.id === op.itemId);
+      if (item) {
+        if (op.text) item.labels[op.date] = op.text;
+        else delete item.labels[op.date];
+      }
+      break;
+    }
+    case "setLevel": {
+      const item = state.items.find((i) => i.id === op.itemId);
+      if (item) item.level = Math.max(0, Math.min(MAX_LEVEL, op.level));
       break;
     }
     case "addItem":
@@ -236,12 +253,21 @@ function renderForOp(op) {
   switch (op.type) {
     case "paint":
     case "erase": {
-      const td = document.querySelector(
-        `.gantt-cell[data-item-id="${cssEscape(op.itemId)}"][data-date="${op.date}"]`
-      );
-      if (td) td.style.background = op.type === "paint" ? op.color : "";
+      const td = findCell(op.itemId, op.date);
+      if (td) {
+        td.style.background = op.type === "paint" ? op.color : "";
+        if (op.type === "erase") renderCellLabel(td, "");
+      }
       break;
     }
+    case "setLabel": {
+      const td = findCell(op.itemId, op.date);
+      if (td) renderCellLabel(td, op.text);
+      break;
+    }
+    case "setLevel":
+      renderGantt();
+      break;
     case "addItem":
     case "removeItem":
     case "moveItem":
@@ -289,6 +315,23 @@ function renderForOp(op) {
 
 function cssEscape(s) {
   return String(s).replace(/["\\]/g, "\\$&");
+}
+
+function findCell(itemId, date) {
+  return document.querySelector(
+    `.gantt-cell[data-item-id="${cssEscape(itemId)}"][data-date="${date}"]`
+  );
+}
+
+// A cell's label is the作業名 shown starting at that cell and overflowing to the right.
+function renderCellLabel(td, text) {
+  const existing = td.querySelector(".bar-label");
+  if (existing) existing.remove();
+  if (!text) return;
+  const span = document.createElement("span");
+  span.className = "bar-label";
+  span.textContent = text;
+  td.appendChild(span);
 }
 
 function dispatchLocal(op) {
@@ -462,18 +505,35 @@ function buildItemRow(item) {
   tr.dataset.itemId = item.id;
 
   const labelTd = document.createElement("td");
-  labelTd.className = "td-label";
+  labelTd.className = "td-label lv" + item.level;
   const inner = document.createElement("div");
   inner.className = "item-row-inner";
 
   const nameInput = document.createElement("input");
   nameInput.className = "item-name-input" + (item.bold ? " bold" : "");
+  nameInput.style.paddingLeft = (2 + item.level * 14) + "px";
   nameInput.value = item.name;
   nameInput.addEventListener("change", (e) => {
     dispatchLocal({ type: "renameItem", itemId: item.id, name: e.target.value });
   });
   nameInput.addEventListener("dblclick", () => {
     dispatchLocal({ type: "toggleBold", itemId: item.id });
+  });
+
+  const outBtn = document.createElement("button");
+  outBtn.className = "row-btn";
+  outBtn.textContent = "◀";
+  outBtn.title = "階層を上げる";
+  outBtn.addEventListener("click", () => {
+    if (item.level > 0) dispatchLocal({ type: "setLevel", itemId: item.id, level: item.level - 1 });
+  });
+
+  const inBtn = document.createElement("button");
+  inBtn.className = "row-btn";
+  inBtn.textContent = "▶";
+  inBtn.title = "階層を下げる（子工種にする）";
+  inBtn.addEventListener("click", () => {
+    if (item.level < MAX_LEVEL) dispatchLocal({ type: "setLevel", itemId: item.id, level: item.level + 1 });
   });
 
   const upBtn = document.createElement("button");
@@ -498,6 +558,8 @@ function buildItemRow(item) {
   });
 
   inner.appendChild(nameInput);
+  inner.appendChild(outBtn);
+  inner.appendChild(inBtn);
   inner.appendChild(upBtn);
   inner.appendChild(downBtn);
   inner.appendChild(delBtn);
@@ -512,6 +574,8 @@ function buildItemRow(item) {
     td.dataset.date = iso;
     const color = item.cells[iso];
     if (color) td.style.background = color;
+    const label = item.labels[iso];
+    if (label) renderCellLabel(td, label);
     tr.appendChild(td);
   });
 
@@ -532,12 +596,57 @@ function applyToolToCell(td) {
   }
 }
 
+let labelEditorEl = null;
+
+function closeLabelEditor() {
+  if (labelEditorEl) {
+    labelEditorEl.remove();
+    labelEditorEl = null;
+  }
+}
+
+function openLabelEditor(td) {
+  const itemId = td.dataset.itemId;
+  const date = td.dataset.date;
+  const item = state.items.find((i) => i.id === itemId);
+  if (!item) return;
+  closeLabelEditor();
+
+  const rect = td.getBoundingClientRect();
+  const input = document.createElement("input");
+  input.className = "label-editor";
+  input.placeholder = "作業内容を入力（例：既存護岸取壊し）";
+  input.value = item.labels[date] || "";
+  input.style.left = (rect.left + window.scrollX) + "px";
+  input.style.top = (rect.top + window.scrollY) + "px";
+  document.body.appendChild(input);
+  labelEditorEl = input;
+  input.focus();
+  input.select();
+
+  const commit = () => {
+    if (!labelEditorEl) return;
+    const text = input.value.trim();
+    closeLabelEditor();
+    if ((item.labels[date] || "") !== text) {
+      dispatchLocal({ type: "setLabel", itemId, date, text });
+    }
+  };
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); commit(); }
+    else if (e.key === "Escape") { e.preventDefault(); closeLabelEditor(); }
+  });
+  input.addEventListener("blur", commit);
+}
+
 function bindGanttPainting() {
   const scroll = $("#gantt-scroll");
   scroll.addEventListener("mousedown", (e) => {
     const td = e.target.closest(".gantt-cell");
     if (!td) return;
     e.preventDefault();
+    if (currentTool.type === "label") { openLabelEditor(td); return; }
     painting = true;
     paintMode = currentTool.type === "erase" ? "erase" : "paint";
     applyToolToCell(td);
@@ -555,6 +664,7 @@ function bindGanttPainting() {
     const el = document.elementFromPoint(t.clientX, t.clientY);
     const td = el && el.closest(".gantt-cell");
     if (!td) return;
+    if (currentTool.type === "label") { openLabelEditor(td); return; }
     painting = true;
     paintMode = currentTool.type === "erase" ? "erase" : "paint";
     applyToolToCell(td);
@@ -571,7 +681,11 @@ function bindGanttPainting() {
 }
 
 function addItem() {
-  dispatchLocal({ type: "addItem", item: { id: uid(), name: "新規工種", bold: false, cells: {} } });
+  const last = state.items[state.items.length - 1];
+  dispatchLocal({
+    type: "addItem",
+    item: { id: uid(), name: "新規工種", bold: false, level: last ? last.level : 0, cells: {}, labels: {} }
+  });
 }
 
 /* ---------------- rendering: progress / S-curve ---------------- */
@@ -701,11 +815,15 @@ function renderPalette() {
   });
 }
 
-function selectColor(color, btnEl) {
-  currentTool = { type: "color", value: color };
+function setTool(tool, btnEl) {
+  currentTool = tool;
   $$(".swatch").forEach((s) => s.classList.remove("selected"));
+  $$(".tool-btn").forEach((b) => b.classList.remove("selected"));
   if (btnEl) btnEl.classList.add("selected");
-  $("#tool-erase").classList.remove("selected");
+}
+
+function selectColor(color, btnEl) {
+  setTool({ type: "color", value: color }, btnEl);
 }
 
 function bindToolbar() {
@@ -757,9 +875,11 @@ function bindToolbar() {
   });
 
   $("#tool-erase").addEventListener("click", (e) => {
-    currentTool = { type: "erase", value: null };
-    $$(".swatch").forEach((s) => s.classList.remove("selected"));
-    e.target.classList.add("selected");
+    setTool({ type: "erase", value: null }, e.currentTarget);
+  });
+
+  $("#tool-label").addEventListener("click", (e) => {
+    setTool({ type: "label", value: null }, e.currentTarget);
   });
 
   $("#custom-color").addEventListener("input", (e) => {
@@ -786,7 +906,9 @@ function normalizeState(raw) {
           id: it.id || uid(),
           name: it.name || "",
           bold: !!it.bold,
-          cells: it.cells && typeof it.cells === "object" ? it.cells : {}
+          level: Math.max(0, Math.min(MAX_LEVEL, Number(it.level) || 0)),
+          cells: it.cells && typeof it.cells === "object" ? it.cells : {},
+          labels: it.labels && typeof it.labels === "object" ? it.labels : {}
         }))
       : base.items,
     progress: {
