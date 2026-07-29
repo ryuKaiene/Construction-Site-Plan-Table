@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler pages dev public",
+    "dev": "node dev-server.mjs",
+    "dev:wrangler": "wrangler pages dev public",
     "deploy": "wrangler pages deploy public"
   },
   "devDependencies": {
