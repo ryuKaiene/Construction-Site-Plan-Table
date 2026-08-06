@@ -8,4 +8,4 @@ compatibility_date = "2025-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "koutei-hyou-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "58e8f162-2f57-4c5c-83d1-9ca86dfa41b1"
