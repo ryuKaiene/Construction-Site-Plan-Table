@@ -3,7 +3,7 @@
  *
  *   node dev-server.mjs        → http://localhost:5174
  *
- * public/ を配信しつつ、public/functions/api/*.js（本番と同じコード）を
+ * public/ を配信しつつ、functions/api/*.js（本番と同じコード）を
  * Node上で実行します。D1 の代わりに Node 内蔵の SQLite をメモリ上に使うため、
  * サーバーを止めるとデータは消えます。
  *
@@ -18,6 +18,7 @@ import { DatabaseSync } from "node:sqlite";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, "public");
+const FUNCTIONS_DIR = path.join(ROOT, "functions");
 const PORT = Number(process.env.PORT || 5174);
 
 const db = new DatabaseSync(":memory:");
@@ -30,10 +31,10 @@ for (const stmt of schema.split(";")) {
   if (s) db.exec(s);
 }
 
-// public/functions/api/*.js は ESM だが拡張子が .js のため、
+// functions/api/*.js は ESM だが拡張子が .js のため、
 // data: URL 経由で読み込んでそのまま実行する。
 async function loadFunction(name) {
-  const src = fs.readFileSync(path.join(PUBLIC_DIR, "functions", "api", name), "utf8");
+  const src = fs.readFileSync(path.join(FUNCTIONS_DIR, "api", name), "utf8");
   return import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
 }
 
