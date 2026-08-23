@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工事工程表 Web版</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="toolbar no-print">
+    <div class="toolbar-left">
+      <a href="index.html" class="btn btn-back" title="工事一覧に戻る">← 一覧</a>
+      <div class="toolbar-title" id="toolbar-project-name">工事工程表</div>
+    </div>
+    <div class="toolbar-group">
+      <button id="btn-print" class="btn">🖶 印刷</button>
+      <button id="btn-excel" class="btn btn-excel">📊 Excel出力</button>
+      <button id="btn-export" class="btn">💾 保存(JSON)</button>
+      <button id="btn-import" class="btn">📂 読込(JSON)</button>
+      <input type="file" id="file-import" accept="application/json" hidden>
+      <button id="btn-share" class="btn btn-accent">🔗 共有URLをコピー</button>
+    </div>
+  </header>
+
+  <div class="palette-bar no-print">
+    <span class="palette-label">工程バーの色：</span>
+    <div id="palette" class="palette"></div>
+    <button id="tool-erase" class="btn tool-btn" title="消しゴム">🧽 消去</button>
+    <button id="tool-label" class="btn tool-btn" title="工程バーに作業内容を記入">📝 作業名</button>
+    <input type="color" id="custom-color" class="custom-color" title="カスタム色" value="#4f8ef7">
+    <span id="conn-status" class="conn-status conn-offline" title="接続状況">● オフライン</span>
+    <span id="share-status" class="share-status"></span>
+  </div>
+
+  <main>
+    <section class="sheet-header" id="sheet-header">
+      <div class="sh-row sh-title-row">
+        <div class="sh-maintitle">工 事 工 程 表</div>
+      </div>
+      <div class="sh-grid">
+        <label class="sh-field sh-wide">
+          <span class="sh-label">工　事　名</span>
+          <input type="text" id="f-projectName" class="sh-input">
+        </label>
+        <label class="sh-field">
+          <span class="sh-label">発　注　者</span>
+          <input type="text" id="f-orderer" class="sh-input">
+        </label>
+        <label class="sh-field sh-wide">
+          <span class="sh-label">工 事 場 所</span>
+          <input type="text" id="f-location" class="sh-input">
+        </label>
+        <label class="sh-field">
+          <span class="sh-label">設 計 ・ 監 理</span>
+          <input type="text" id="f-supervisor" class="sh-input">
+        </label>
+        <label class="sh-field">
+          <span class="sh-label">施　工　者</span>
+          <input type="text" id="f-contractor" class="sh-input">
+        </label>
+        <label class="sh-field">
+          <span class="sh-label">契 約 年 月 日</span>
+          <input type="date" id="f-contractDate" class="sh-input">
+        </label>
+        <label class="sh-field">
+          <span class="sh-label">作　成　日</span>
+          <input type="date" id="f-createdDate" class="sh-input">
+        </label>
+        <div class="sh-field sh-period">
+          <span class="sh-label">工　期</span>
+          <input type="date" id="f-startDate" class="sh-input sh-date">
+          <span class="sh-tilde">～</span>
+          <input type="date" id="f-endDate" class="sh-input sh-date">
+        </div>
+      </div>
+    </section>
+
+    <section class="gantt-wrap">
+      <div class="gantt-toolbar no-print">
+        <span class="gantt-toolbar-title">工事項目（工種）</span>
+        <button id="btn-add-item" class="btn btn-accent btn-add-item">＋ 工種を追加</button>
+        <span class="gantt-toolbar-hint">
+          ◀ ▶ で階層（大工種→中工種→作業）／ ▲ ▼ で並べ替え
+        </span>
+      </div>
+      <div class="gantt-scroll" id="gantt-scroll">
+        <table id="gantt-table">
+          <thead id="gantt-thead"></thead>
+          <tbody id="gantt-tbody"></tbody>
+        </table>
+      </div>
+      <div class="gantt-footer no-print">
+        <button id="btn-add-item-bottom" class="btn btn-add-item">＋ 工種を追加</button>
+      </div>
+    </section>
+
+    <section class="progress-wrap">
+      <h2 class="section-title">出来高率（S字カーブ）</h2>
+      <div class="progress-table-scroll">
+        <table id="progress-table"></table>
+      </div>
+      <div class="chart-box">
+        <canvas id="progress-canvas" width="900" height="240"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <footer class="hint no-print">
+    工程バーの作成：色を選んで日付セルをドラッグ ／ 作業内容の記入：「📝 作業名」を選んでバーの先頭セルをクリック ／
+    工種名はダブルクリックで太字切替 ／
+    「🟢 自動同期中」の間は、このURLを開いた全員の編集が数秒おきに自動で同期されます。
+  </footer>
+
+</div>
+<script src="xlsx.js"></script>
+<script src="script.js"></script>
+</body>
+</html>

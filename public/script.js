@@ -1,7 +1,6 @@
 (() => {
 "use strict";
 
-const STORAGE_KEY = "koutei-hyou-state-v1";
 const WEEKDAY_JP = ["日", "月", "火", "水", "木", "金", "土"];
 const PALETTE = [
   "#4f8ef7", "#f76c6c", "#f7b84f", "#4fd17f", "#a678f2",
@@ -57,27 +56,31 @@ function uid() {
   return "id" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
-/* ---------------- default state (seeded from actual project) ---------------- */
+/* ---------------- default state ----------------
+   実際の工事情報は新規作成フォームからサーバーに登録され、resetAll op として
+   同期されてくる。ここはサーバーに繋がるまでの一時的な土台。 */
 function defaultState() {
+  const today = new Date();
+  const monthLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate());
   return {
     meta: {
-      projectName: "６災１１２２号　二級河川松波川　河川災害復旧工事（その１）（概略発注対象工事）",
-      orderer: "石川県土木部",
-      location: "鳳珠郡能登町字松波地内",
+      projectName: "",
+      orderer: "",
+      location: "",
       supervisor: "",
-      contractor: "株式会社 西中建設",
-      contractDate: "2025-03-19",
-      createdDate: isoDate(new Date()),
-      startDate: "2026-07-01",
-      endDate: "2027-03-26"
+      contractor: "",
+      contractDate: "",
+      createdDate: isoDate(today),
+      startDate: isoDate(today),
+      endDate: isoDate(monthLater)
     },
     items: [
-      { id: uid(), name: "河川土工", bold: true, level: 0, cells: {}, labels: {} },
-      { id: uid(), name: "護岸工", bold: true, level: 0, cells: {}, labels: {} },
-      { id: uid(), name: "擁壁護岸工", bold: true, level: 0, cells: {}, labels: {} },
-      { id: uid(), name: "付帯道路工", bold: true, level: 0, cells: {}, labels: {} },
-      { id: uid(), name: "構造物撤去工", bold: true, level: 0, cells: {}, labels: {} },
-      { id: uid(), name: "仮設工", bold: true, level: 0, cells: {}, labels: {} }
+      { id: uid(), name: "準備工", bold: true, level: 0, cells: {}, labels: {} },
+      { id: uid(), name: "仮設工", bold: true, level: 0, cells: {}, labels: {} },
+      { id: uid(), name: "土工", bold: true, level: 0, cells: {}, labels: {} },
+      { id: uid(), name: "構造物工", bold: true, level: 0, cells: {}, labels: {} },
+      { id: uid(), name: "付帯工", bold: true, level: 0, cells: {}, labels: {} },
+      { id: uid(), name: "後片付け工", bold: true, level: 0, cells: {}, labels: {} }
     ],
     progress: { plan: {}, actual: {} }
   };
@@ -89,10 +92,15 @@ let painting = false;
 let paintMode = null; // 'paint' | 'erase'
 
 /* ---------------- realtime sync (HTTP polling against D1-backed op log) ---------------- */
-const roomId = new URLSearchParams(location.search).get("room") || "default";
-const LASTSEQ_KEY = "koutei-hyou-lastseq-v1";
+// 工事案件ごとに部屋を分ける。?project= が無い場合は一覧へ戻す。
+// 旧URL(?room=) を開いた人のために room も見る。
+const params = new URLSearchParams(location.search);
+const roomId = params.get("project") || params.get("room") || "";
+const LASTSEQ_KEY = "koutei-hyou-lastseq-v1:" + roomId;
 const POLL_INTERVAL_MS = 2000;
 const BATCH_LIMIT = 500;
+
+const STORAGE_KEY = "koutei-hyou-state-v1:" + roomId;
 
 let lastSeq = Number(localStorage.getItem(LASTSEQ_KEY) || "0") || 0;
 const appliedSeqs = new Set();
@@ -296,6 +304,7 @@ function renderForOp(op) {
         const id = META_INPUT_ID[op.key];
         const el = id && document.getElementById(id);
         if (el && document.activeElement !== el) el.value = state.meta[op.key] || "";
+        if (op.key === "projectName") renderToolbarName();
       }
       break;
     }
@@ -338,7 +347,6 @@ function dispatchLocal(op) {
   applyOp(op);
   renderForOp(op);
   saveLocal();
-  scheduleHashUpdate();
   syncPush(op);
 }
 
@@ -361,65 +369,6 @@ function loadLocal() {
   } catch (e) { return null; }
 }
 
-function textToBase64Url(str) {
-  const b64 = btoa(unescape(encodeURIComponent(str)));
-  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function base64UrlToText(b64url) {
-  let b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
-  while (b64.length % 4) b64 += "=";
-  return decodeURIComponent(escape(atob(b64)));
-}
-
-async function encodeStateForHash(s) {
-  const json = JSON.stringify(s);
-  if (window.CompressionStream) {
-    try {
-      const stream = new Blob([json]).stream().pipeThrough(new CompressionStream("gzip"));
-      const buf = await new Response(stream).arrayBuffer();
-      let bin = "";
-      const bytes = new Uint8Array(buf);
-      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-      const b64 = btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-      return "z" + b64;
-    } catch (e) { /* fall through to plain */ }
-  }
-  return "p" + textToBase64Url(json);
-}
-
-async function decodeStateFromHash(hash) {
-  if (!hash) return null;
-  const tag = hash[0];
-  const body = hash.slice(1);
-  try {
-    if (tag === "z" && window.DecompressionStream) {
-      let b64 = body.replace(/-/g, "+").replace(/_/g, "/");
-      while (b64.length % 4) b64 += "=";
-      const bin = atob(b64);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
-      const buf = await new Response(stream).arrayBuffer();
-      const json = new TextDecoder().decode(buf);
-      return JSON.parse(json);
-    }
-    if (tag === "p") {
-      return JSON.parse(base64UrlToText(body));
-    }
-  } catch (e) { return null; }
-  return null;
-}
-
-let hashUpdateTimer = null;
-function scheduleHashUpdate() {
-  clearTimeout(hashUpdateTimer);
-  hashUpdateTimer = setTimeout(async () => {
-    const encoded = await encodeStateForHash(state);
-    history.replaceState(null, "", location.pathname + location.search + "#" + encoded);
-  }, 400);
-}
-
 /* ---------------- rendering: header ---------------- */
 function renderHeader() {
   const m = state.meta;
@@ -427,6 +376,12 @@ function renderHeader() {
     const el = document.getElementById(id);
     if (el) el.value = m[key] || "";
   });
+  renderToolbarName();
+}
+
+function renderToolbarName() {
+  const el = document.getElementById("toolbar-project-name");
+  if (el) el.textContent = state.meta.projectName || "工事工程表";
 }
 
 function bindHeaderEvents() {
@@ -828,13 +783,23 @@ function selectColor(color, btnEl) {
 
 function bindToolbar() {
   $("#btn-add-item").addEventListener("click", addItem);
+  $("#btn-add-item-bottom").addEventListener("click", addItem);
   $("#btn-print").addEventListener("click", () => window.print());
+
+  $("#btn-excel").addEventListener("click", () => {
+    try {
+      window.KouteiXlsx.exportSchedule(state);
+      showShareStatus("Excelファイルを出力しました");
+    } catch (e) {
+      alert("Excel出力に失敗しました：" + e.message);
+    }
+  });
 
   $("#btn-export").addEventListener("click", () => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "工事工程表.json";
+    a.download = (state.meta.projectName || "工事工程表") + ".json";
     a.click();
     URL.revokeObjectURL(a.href);
   });
@@ -858,20 +823,12 @@ function bindToolbar() {
   });
 
   $("#btn-share").addEventListener("click", async () => {
-    const encoded = await encodeStateForHash(state);
-    history.replaceState(null, "", location.pathname + location.search + "#" + encoded);
     try {
       await navigator.clipboard.writeText(location.href);
       showShareStatus("共有URLをコピーしました");
     } catch (e) {
       showShareStatus("コピーに失敗しました。アドレスバーのURLを共有してください");
     }
-  });
-
-  $("#btn-reset").addEventListener("click", () => {
-    if (!confirm("すべてのデータを初期状態に戻します。よろしいですか？（全員に反映されます）")) return;
-    dispatchLocal({ type: "resetAll", state: defaultState() });
-    history.replaceState(null, "", location.pathname + location.search);
   });
 
   $("#tool-erase").addEventListener("click", (e) => {
@@ -929,11 +886,14 @@ function renderAll() {
 }
 
 /* ---------------- init ---------------- */
-async function init() {
-  const hash = location.hash ? location.hash.slice(1) : "";
-  let loaded = null;
-  if (hash) loaded = await decodeStateFromHash(hash);
-  if (!loaded) loaded = loadLocal();
+function init() {
+  if (!roomId) {
+    // 工事が指定されていない場合は一覧へ
+    location.replace("index.html");
+    return;
+  }
+
+  const loaded = loadLocal();
   state = loaded ? normalizeState(loaded) : defaultState();
 
   renderPalette();

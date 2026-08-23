@@ -3,105 +3,100 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>工事工程表 Web版</title>
+<title>工事一覧 | 工事工程表</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="app">
 
-  <header class="toolbar no-print">
-    <div class="toolbar-title">工事工程表</div>
+  <header class="toolbar">
+    <div class="toolbar-left">
+      <div class="toolbar-title">工事工程表</div>
+      <span class="toolbar-sub">工事案件一覧</span>
+    </div>
     <div class="toolbar-group">
-      <button id="btn-add-item" class="btn">＋ 工種を追加</button>
-      <button id="btn-print" class="btn">🖶 印刷</button>
-      <button id="btn-export" class="btn">💾 保存(JSON)</button>
-      <button id="btn-import" class="btn">📂 読込(JSON)</button>
-      <input type="file" id="file-import" accept="application/json" hidden>
-      <button id="btn-share" class="btn btn-accent">🔗 共有URLをコピー</button>
-      <button id="btn-reset" class="btn btn-danger">🗑 リセット</button>
+      <button id="btn-new-project" class="btn btn-accent">＋ 新規工事を作成</button>
     </div>
   </header>
 
-  <div class="palette-bar no-print">
-    <span class="palette-label">工程バーの色：</span>
-    <div id="palette" class="palette"></div>
-    <button id="tool-erase" class="btn tool-btn" title="消しゴム">🧽 消去</button>
-    <button id="tool-label" class="btn tool-btn" title="工程バーに作業内容を記入">📝 作業名</button>
-    <input type="color" id="custom-color" class="custom-color" title="カスタム色" value="#4f8ef7">
-    <span id="conn-status" class="conn-status conn-offline" title="接続状況">● オフライン</span>
-    <span id="share-status" class="share-status"></span>
-  </div>
+  <main class="list-main">
+    <div id="list-status" class="list-status"></div>
 
-  <main>
-    <section class="sheet-header" id="sheet-header">
-      <div class="sh-row sh-title-row">
-        <div class="sh-maintitle">工 事 工 程 表</div>
-      </div>
-      <div class="sh-grid">
-        <label class="sh-field sh-wide">
-          <span class="sh-label">工　事　名</span>
-          <input type="text" id="f-projectName" class="sh-input">
-        </label>
-        <label class="sh-field">
-          <span class="sh-label">発　注　者</span>
-          <input type="text" id="f-orderer" class="sh-input">
-        </label>
-        <label class="sh-field sh-wide">
-          <span class="sh-label">工 事 場 所</span>
-          <input type="text" id="f-location" class="sh-input">
-        </label>
-        <label class="sh-field">
-          <span class="sh-label">設 計 ・ 監 理</span>
-          <input type="text" id="f-supervisor" class="sh-input">
-        </label>
-        <label class="sh-field">
-          <span class="sh-label">施　工　者</span>
-          <input type="text" id="f-contractor" class="sh-input">
-        </label>
-        <label class="sh-field">
-          <span class="sh-label">契 約 年 月 日</span>
-          <input type="date" id="f-contractDate" class="sh-input">
-        </label>
-        <label class="sh-field">
-          <span class="sh-label">作　成　日</span>
-          <input type="date" id="f-createdDate" class="sh-input">
-        </label>
-        <div class="sh-field sh-period">
-          <span class="sh-label">工　期</span>
-          <input type="date" id="f-startDate" class="sh-input sh-date">
-          <span class="sh-tilde">～</span>
-          <input type="date" id="f-endDate" class="sh-input sh-date">
-        </div>
-      </div>
-    </section>
+    <div id="project-list" class="project-list"></div>
 
-    <section class="gantt-wrap">
-      <div class="gantt-scroll" id="gantt-scroll">
-        <table id="gantt-table">
-          <thead id="gantt-thead"></thead>
-          <tbody id="gantt-tbody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="progress-wrap">
-      <h2 class="section-title">出来高率（S字カーブ）</h2>
-      <div class="progress-table-scroll">
-        <table id="progress-table"></table>
-      </div>
-      <div class="chart-box">
-        <canvas id="progress-canvas" width="900" height="240"></canvas>
-      </div>
-    </section>
+    <div id="empty-state" class="empty-state" hidden>
+      <p class="empty-title">まだ工事が登録されていません</p>
+      <p class="empty-desc">「＋ 新規工事を作成」から、最初の工事を登録してください。</p>
+    </div>
   </main>
 
-  <footer class="hint no-print">
-    工程バーの作成：色を選んで日付セルをドラッグ ／ 作業内容の記入：「📝 作業名」を選んでバーの先頭セルをクリック ／
-    階層：「◀ ▶」で工種の親子関係を設定（大工種→中工種→作業の3階層）／ 工種名はダブルクリックで太字切替 ／
-    「🟢 自動同期中」の間は、このURLを開いた全員の編集が数秒おきに自動で同期されます。
-  </footer>
-
 </div>
-<script src="script.js"></script>
+
+<!-- 新規工事作成フォーム -->
+<div id="modal-backdrop" class="modal-backdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-head">
+      <h2 class="modal-title" id="modal-title">新規工事の登録</h2>
+      <button id="btn-modal-close" class="modal-close" title="閉じる">✕</button>
+    </div>
+
+    <form id="new-project-form" class="modal-body">
+      <label class="form-field form-wide">
+        <span class="form-label">工事名 <em class="req">必須</em></span>
+        <input type="text" name="projectName" class="form-input" required
+               placeholder="例：６災１１２２号　二級河川松波川　河川災害復旧工事（その１）">
+      </label>
+
+      <label class="form-field">
+        <span class="form-label">発注者</span>
+        <input type="text" name="orderer" class="form-input" placeholder="例：石川県土木部">
+      </label>
+
+      <label class="form-field">
+        <span class="form-label">施工者</span>
+        <input type="text" name="contractor" class="form-input" placeholder="例：株式会社 西中建設">
+      </label>
+
+      <label class="form-field form-wide">
+        <span class="form-label">工事場所</span>
+        <input type="text" name="location" class="form-input" placeholder="例：鳳珠郡能登町字松波地内">
+      </label>
+
+      <label class="form-field">
+        <span class="form-label">設計・監理</span>
+        <input type="text" name="supervisor" class="form-input">
+      </label>
+
+      <label class="form-field">
+        <span class="form-label">契約年月日</span>
+        <input type="date" name="contractDate" class="form-input">
+      </label>
+
+      <label class="form-field">
+        <span class="form-label">工期（開始） <em class="req">必須</em></span>
+        <input type="date" name="startDate" class="form-input" required>
+      </label>
+
+      <label class="form-field">
+        <span class="form-label">工期（終了） <em class="req">必須</em></span>
+        <input type="date" name="endDate" class="form-input" required>
+      </label>
+
+      <label class="form-field">
+        <span class="form-label">作成日</span>
+        <input type="date" name="createdDate" class="form-input">
+      </label>
+
+      <div class="form-error" id="form-error" hidden></div>
+
+      <div class="modal-actions">
+        <button type="button" id="btn-modal-cancel" class="btn">キャンセル</button>
+        <button type="submit" id="btn-modal-submit" class="btn btn-accent">この内容で作成する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="projects.js"></script>
 </body>
 </html>

@@ -48,11 +48,40 @@ html, body {
   flex-wrap: wrap;
 }
 
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
 .toolbar-title {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.1em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 46vw;
 }
+
+.toolbar-sub {
+  font-size: 12px;
+  color: #aab0bd;
+  white-space: nowrap;
+}
+
+.btn-back {
+  background: #3a4256;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-excel {
+  background: #1d6f42;
+  border-color: #14522f;
+}
+.btn-excel:hover { background: #14522f; }
 
 .toolbar-group {
   display: flex;
@@ -234,6 +263,37 @@ main {
   overflow: hidden;
 }
 
+.gantt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 4px 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.gantt-toolbar-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.gantt-toolbar-hint {
+  font-size: 11px;
+  color: #777;
+}
+
+.btn-add-item {
+  padding: 4px 12px;
+  font-size: 12.5px;
+}
+
+.gantt-footer {
+  padding: 8px 4px 2px;
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+}
+
 .gantt-scroll {
   overflow-x: auto;
   overflow-y: hidden;
@@ -325,18 +385,20 @@ main {
 /* ---------- 作業名ラベル（バー上に重ねて右へはみ出して表示） ---------- */
 .bar-label {
   position: absolute;
-  left: 2px;
+  left: 1px;
   top: 50%;
   transform: translateY(-50%);
   white-space: nowrap;
   font-size: 10px;
-  line-height: 1;
+  line-height: 1.4;
   color: #1a1c22;
   pointer-events: none;
   z-index: 3;
-  text-shadow:
-     1px 0 2px #fff, -1px 0 2px #fff,
-     0 1px 2px #fff, 0 -1px 2px #fff;
+  /* 濃い工程バーの上に重なっても読めるように、薄い白地を敷く */
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 2px;
+  padding: 0 3px;
 }
 
 .label-editor {
@@ -407,6 +469,196 @@ main {
 
 #progress-canvas { display: block; }
 
+/* ---------- 工事案件一覧ページ ---------- */
+.list-main {
+  flex: 1;
+  padding: 20px 16px 40px;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.list-status {
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+.status-info { background: #eef2f8; color: #444; }
+.status-error { background: #fdecec; color: #a12b2b; border: 1px solid #f3c0c0; }
+
+.project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.project-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.project-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 10px rgba(47, 111, 237, 0.12);
+}
+
+.project-main {
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.project-name {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 5px;
+  color: var(--accent-dark);
+}
+
+.project-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 3px;
+}
+
+.project-period {
+  font-size: 12.5px;
+  color: #333;
+}
+
+.project-updated {
+  font-size: 11px;
+  color: #999;
+  margin-top: 3px;
+}
+
+.project-actions {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.project-actions .btn { text-decoration: none; }
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #777;
+}
+.empty-title { font-size: 16px; font-weight: 700; margin: 0 0 8px; }
+.empty-desc { font-size: 13px; margin: 0; }
+
+/* ---------- 新規工事作成モーダル ---------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 22, 28, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  overflow-y: auto;
+  z-index: 100;
+}
+.modal-backdrop[hidden] { display: none; }
+
+.modal {
+  background: var(--panel);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 760px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-title { font-size: 16px; margin: 0; }
+
+.modal-close {
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  cursor: pointer;
+  color: #777;
+  padding: 4px 8px;
+}
+.modal-close:hover { color: var(--danger); }
+
+.modal-body {
+  padding: 18px 20px 20px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 18px;
+}
+
+.form-field { display: flex; flex-direction: column; gap: 4px; }
+.form-wide { grid-column: span 2; }
+
+.form-label {
+  font-size: 12px;
+  color: #444;
+  font-weight: 600;
+}
+
+.req {
+  font-style: normal;
+  font-size: 10.5px;
+  color: #fff;
+  background: var(--danger);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-left: 4px;
+}
+
+.form-input {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 7px 9px;
+  font-size: 13px;
+  font-family: inherit;
+  width: 100%;
+}
+.form-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.15);
+}
+
+.form-error {
+  grid-column: span 2;
+  background: #fdecec;
+  border: 1px solid #f3c0c0;
+  color: #a12b2b;
+  border-radius: 5px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+}
+
+.modal-actions {
+  grid-column: span 2;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.modal-actions .btn { padding: 8px 18px; }
+
 /* ---------- Footer ---------- */
 .hint {
   padding: 8px 16px 14px;
@@ -436,4 +688,8 @@ main {
 @media (max-width: 700px) {
   .sh-grid { grid-template-columns: repeat(2, 1fr); }
   .sh-wide, .sh-period { grid-column: span 2; }
+  .modal-body { grid-template-columns: 1fr; }
+  .form-wide, .form-error, .modal-actions { grid-column: span 1; }
+  .project-card { flex-direction: column; align-items: stretch; }
+  .toolbar-title { max-width: 100%; }
 }
