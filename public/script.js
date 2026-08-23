@@ -56,6 +56,20 @@ function uid() {
   return "id" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
+/* 旧バージョンで作られた項目（level / labels を持たない）でも安全に扱えるよう、
+   op から受け取った item は必ずここを通してから state に入れる。 */
+function normalizeItem(raw) {
+  const it = raw && typeof raw === "object" ? raw : {};
+  return {
+    id: it.id || uid(),
+    name: typeof it.name === "string" ? it.name : "",
+    bold: !!it.bold,
+    level: Math.max(0, Math.min(MAX_LEVEL, Number(it.level) || 0)),
+    cells: it.cells && typeof it.cells === "object" ? it.cells : {},
+    labels: it.labels && typeof it.labels === "object" ? it.labels : {}
+  };
+}
+
 /* ---------------- default state ----------------
    実際の工事情報は新規作成フォームからサーバーに登録され、resetAll op として
    同期されてくる。ここはサーバーに繋がるまでの一時的な土台。 */
@@ -128,28 +142,61 @@ function saveLastSeq() {
 // (our own just-sent ops included) and advances lastSeq only from what the
 // server actually confirms, so no op is ever skipped due to out-of-order seqs.
 async function syncPull() {
+  // 1) まず取得だけを行う。ここで失敗した時だけが本当の「オフライン」。
+  let incoming = [];
   try {
     let more = true;
+    let cursor = lastSeq;
     while (more) {
-      const res = await fetch(`/api/ops?room=${encodeURIComponent(roomId)}&since=${lastSeq}`);
+      const res = await fetch(`/api/ops?room=${encodeURIComponent(roomId)}&since=${cursor}`);
       if (!res.ok) throw new Error("poll failed");
       const data = await res.json();
-      for (const { seq, op } of data.ops) {
-        if (!appliedSeqs.has(seq)) {
-          receiveRemoteOp(op);
-          appliedSeqs.add(seq);
-        }
-        if (seq > lastSeq) lastSeq = seq;
-      }
-      more = data.ops.length === BATCH_LIMIT;
+      const ops = Array.isArray(data.ops) ? data.ops : [];
+      incoming = incoming.concat(ops);
+      if (ops.length) cursor = ops[ops.length - 1].seq;
+      more = ops.length === BATCH_LIMIT;
     }
-    saveLastSeq();
-    setConnStatus("online");
-    return true;
   } catch (e) {
     setConnStatus("offline");
     return false;
   }
+
+  // 2) 取得できた時点で「オンライン」。以降の適用エラーで同期を止めない。
+  setConnStatus("online");
+  applyIncomingOps(incoming);
+  return true;
+}
+
+// 受信したopをまとめて反映する。
+// 1件だけなら差分描画、まとめて来た場合は状態を全部進めてから1回だけ再描画するので、
+// 履歴が数百件あっても初回読み込みで固まらない。
+function applyIncomingOps(list) {
+  const fresh = [];
+  for (const entry of list) {
+    if (!entry || typeof entry.seq !== "number") continue;
+    if (!appliedSeqs.has(entry.seq)) {
+      appliedSeqs.add(entry.seq);
+      fresh.push(entry.op);
+    }
+    if (entry.seq > lastSeq) lastSeq = entry.seq;
+  }
+  saveLastSeq();
+  if (!fresh.length) return;
+
+  if (fresh.length === 1) {
+    receiveRemoteOp(fresh[0]);
+    return;
+  }
+  for (const op of fresh) {
+    try {
+      applyOp(op);
+    } catch (e) {
+      // 壊れたop 1件のせいで同期全体が止まらないように読み飛ばす
+      console.warn("同期: 適用できないopをスキップしました", op, e);
+    }
+  }
+  renderAll();
+  saveLocal();
 }
 
 async function syncPush(op) {
@@ -221,7 +268,7 @@ function applyOp(op) {
       break;
     }
     case "addItem":
-      state.items.push(op.item);
+      state.items.push(normalizeItem(op.item));
       break;
     case "removeItem":
       state.items = state.items.filter((i) => i.id !== op.itemId);
@@ -243,6 +290,16 @@ function applyOp(op) {
         const [it] = state.items.splice(idx, 1);
         state.items.splice(newIdx, 0, it);
       }
+      break;
+    }
+    // ドラッグ＆ドロップ用。toIndex は「移動後の並びでの位置」。
+    case "reorderItem": {
+      const idx = state.items.findIndex((i) => i.id === op.itemId);
+      const to = Number(op.toIndex);
+      if (idx < 0 || !Number.isFinite(to)) break;
+      const [it] = state.items.splice(idx, 1);
+      const dest = Math.max(0, Math.min(state.items.length, Math.round(to)));
+      state.items.splice(dest, 0, it);
       break;
     }
     case "setMeta":
@@ -279,6 +336,7 @@ function renderForOp(op) {
     case "addItem":
     case "removeItem":
     case "moveItem":
+    case "reorderItem":
       renderGantt();
       break;
     case "renameItem": {
@@ -351,8 +409,13 @@ function dispatchLocal(op) {
 }
 
 function receiveRemoteOp(op) {
-  applyOp(op);
-  renderForOp(op);
+  try {
+    applyOp(op);
+    renderForOp(op);
+  } catch (e) {
+    console.warn("同期: opの反映に失敗したため全体を再描画します", op, e);
+    try { renderAll(); } catch (e2) { /* ここまで来たら描画は諦める */ }
+  }
   saveLocal();
 }
 
@@ -455,18 +518,98 @@ function weekendClass(d) {
   return "";
 }
 
+/* ---------------- 行のドラッグ並べ替え ---------------- */
+let rowDrag = null;
+
+function startRowDrag(ev, itemId, tr) {
+  if (ev.button !== undefined && ev.button !== 0) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  const tbody = document.getElementById("gantt-tbody");
+  if (!tbody) return;
+
+  rowDrag = { itemId, tr, tbody, fromIndex: Array.from(tbody.children).indexOf(tr) };
+  tr.classList.add("row-dragging");
+  document.body.classList.add("row-drag-active");
+  window.addEventListener("pointermove", onRowDragMove);
+  window.addEventListener("pointerup", endRowDrag);
+  window.addEventListener("pointercancel", cancelRowDrag);
+}
+
+// 行を実際にDOM上で動かしながらプレビューする。確定は pointerup。
+function onRowDragMove(ev) {
+  if (!rowDrag) return;
+  ev.preventDefault();
+  const { tr, tbody } = rowDrag;
+  const rows = Array.from(tbody.children);
+  const y = ev.clientY;
+
+  for (const row of rows) {
+    if (row === tr) continue;
+    const rect = row.getBoundingClientRect();
+    if (y >= rect.top && y <= rect.bottom) {
+      if (y < rect.top + rect.height / 2) tbody.insertBefore(tr, row);
+      else tbody.insertBefore(tr, row.nextSibling);
+      return;
+    }
+  }
+
+  // 一番上／一番下からはみ出した場合
+  const first = rows[0];
+  const last = rows[rows.length - 1];
+  if (first && y < first.getBoundingClientRect().top) tbody.insertBefore(tr, first);
+  else if (last && y > last.getBoundingClientRect().bottom) tbody.appendChild(tr);
+}
+
+function finishRowDrag() {
+  window.removeEventListener("pointermove", onRowDragMove);
+  window.removeEventListener("pointerup", endRowDrag);
+  window.removeEventListener("pointercancel", cancelRowDrag);
+  if (rowDrag) rowDrag.tr.classList.remove("row-dragging");
+  document.body.classList.remove("row-drag-active");
+  const ctx = rowDrag;
+  rowDrag = null;
+  return ctx;
+}
+
+function endRowDrag() {
+  const ctx = finishRowDrag();
+  if (!ctx) return;
+  const toIndex = Array.from(ctx.tbody.children).indexOf(ctx.tr);
+  if (toIndex < 0 || toIndex === ctx.fromIndex) {
+    renderGantt(); // 動かなかった場合もDOMを状態に戻す
+    return;
+  }
+  dispatchLocal({ type: "reorderItem", itemId: ctx.itemId, toIndex });
+}
+
+function cancelRowDrag() {
+  if (finishRowDrag()) renderGantt();
+}
+
 function buildItemRow(item) {
+  // 旧データ対策：level / cells / labels が無くても描画できるようにする
+  const level = Math.max(0, Math.min(MAX_LEVEL, Number(item.level) || 0));
+  const cells = item.cells && typeof item.cells === "object" ? item.cells : {};
+  const labels = item.labels && typeof item.labels === "object" ? item.labels : {};
+
   const tr = document.createElement("tr");
   tr.dataset.itemId = item.id;
 
   const labelTd = document.createElement("td");
-  labelTd.className = "td-label lv" + item.level;
+  labelTd.className = "td-label lv" + level;
   const inner = document.createElement("div");
   inner.className = "item-row-inner";
 
+  const dragHandle = document.createElement("span");
+  dragHandle.className = "row-drag";
+  dragHandle.textContent = "⠿";
+  dragHandle.title = "ドラッグで並べ替え";
+  dragHandle.addEventListener("pointerdown", (e) => startRowDrag(e, item.id, tr));
+
   const nameInput = document.createElement("input");
   nameInput.className = "item-name-input" + (item.bold ? " bold" : "");
-  nameInput.style.paddingLeft = (2 + item.level * 14) + "px";
+  nameInput.style.paddingLeft = (2 + level * 14) + "px";
   nameInput.value = item.name;
   nameInput.addEventListener("change", (e) => {
     dispatchLocal({ type: "renameItem", itemId: item.id, name: e.target.value });
@@ -480,7 +623,7 @@ function buildItemRow(item) {
   outBtn.textContent = "◀";
   outBtn.title = "階層を上げる";
   outBtn.addEventListener("click", () => {
-    if (item.level > 0) dispatchLocal({ type: "setLevel", itemId: item.id, level: item.level - 1 });
+    if (level > 0) dispatchLocal({ type: "setLevel", itemId: item.id, level: level - 1 });
   });
 
   const inBtn = document.createElement("button");
@@ -488,7 +631,7 @@ function buildItemRow(item) {
   inBtn.textContent = "▶";
   inBtn.title = "階層を下げる（子工種にする）";
   inBtn.addEventListener("click", () => {
-    if (item.level < MAX_LEVEL) dispatchLocal({ type: "setLevel", itemId: item.id, level: item.level + 1 });
+    if (level < MAX_LEVEL) dispatchLocal({ type: "setLevel", itemId: item.id, level: level + 1 });
   });
 
   const upBtn = document.createElement("button");
@@ -512,6 +655,7 @@ function buildItemRow(item) {
     dispatchLocal({ type: "removeItem", itemId: item.id });
   });
 
+  inner.appendChild(dragHandle);
   inner.appendChild(nameInput);
   inner.appendChild(outBtn);
   inner.appendChild(inBtn);
@@ -527,9 +671,9 @@ function buildItemRow(item) {
     td.className = "gantt-cell day-col" + weekendClass(d);
     td.dataset.itemId = item.id;
     td.dataset.date = iso;
-    const color = item.cells[iso];
+    const color = cells[iso];
     if (color) td.style.background = color;
-    const label = item.labels[iso];
+    const label = labels[iso];
     if (label) renderCellLabel(td, label);
     tr.appendChild(td);
   });
@@ -554,10 +698,10 @@ function applyToolToCell(td) {
 let labelEditorEl = null;
 
 function closeLabelEditor() {
-  if (labelEditorEl) {
-    labelEditorEl.remove();
-    labelEditorEl = null;
-  }
+  const el = labelEditorEl;
+  labelEditorEl = null;
+  // Enter確定とblurが続けて走った時に二重removeで例外にならないようにする
+  if (el && el.parentNode) el.parentNode.removeChild(el);
 }
 
 function openLabelEditor(td) {
@@ -571,7 +715,7 @@ function openLabelEditor(td) {
   const input = document.createElement("input");
   input.className = "label-editor";
   input.placeholder = "作業内容を入力（例：既存護岸取壊し）";
-  input.value = item.labels[date] || "";
+  input.value = (item.labels || {})[date] || "";
   input.style.left = (rect.left + window.scrollX) + "px";
   input.style.top = (rect.top + window.scrollY) + "px";
   document.body.appendChild(input);
@@ -583,7 +727,7 @@ function openLabelEditor(td) {
     if (!labelEditorEl) return;
     const text = input.value.trim();
     closeLabelEditor();
-    if ((item.labels[date] || "") !== text) {
+    if (((item.labels || {})[date] || "") !== text) {
       dispatchLocal({ type: "setLabel", itemId, date, text });
     }
   };
@@ -859,14 +1003,7 @@ function normalizeState(raw) {
   return {
     meta: Object.assign(base.meta, raw.meta || {}),
     items: Array.isArray(raw.items) && raw.items.length
-      ? raw.items.map((it) => ({
-          id: it.id || uid(),
-          name: it.name || "",
-          bold: !!it.bold,
-          level: Math.max(0, Math.min(MAX_LEVEL, Number(it.level) || 0)),
-          cells: it.cells && typeof it.cells === "object" ? it.cells : {},
-          labels: it.labels && typeof it.labels === "object" ? it.labels : {}
-        }))
+      ? raw.items.map(normalizeItem)
       : base.items,
     progress: {
       plan: (raw.progress && raw.progress.plan) || {},
