@@ -26,6 +26,7 @@
     <span class="palette-label">工程バーの色：</span>
     <div id="palette" class="palette"></div>
     <button id="tool-erase" class="btn tool-btn" title="消しゴム">🧽 消去</button>
+    <button id="tool-label" class="btn tool-btn" title="工程バーに作業内容を記入">📝 作業名</button>
     <input type="color" id="custom-color" class="custom-color" title="カスタム色" value="#4f8ef7">
     <span id="conn-status" class="conn-status conn-offline" title="接続状況">● オフライン</span>
     <span id="share-status" class="share-status"></span>
@@ -95,7 +96,8 @@
   </main>
 
   <footer class="hint no-print">
-    工程バーの作成：日付セルをドラッグ ／ 工種名はダブルクリックで太字切替（区切りに便利）／
+    工程バーの作成：色を選んで日付セルをドラッグ ／ 作業内容の記入：「📝 作業名」を選んでバーの先頭セルをクリック ／
+    階層：「◀ ▶」で工種の親子関係を設定（大工種→中工種→作業の3階層）／ 工種名はダブルクリックで太字切替 ／
     「🟢 自動同期中」の間は、このURLを開いた全員の編集が数秒おきに自動で同期されます。
   </footer>
 
