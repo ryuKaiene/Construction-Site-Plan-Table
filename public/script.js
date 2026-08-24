@@ -244,7 +244,8 @@ async function startSync() {
   if (ok && lastSeq === 0) {
     // pull succeeded and found no history at all: this room is brand-new,
     // so seed it with our local starting state as the first op everyone replays.
-    dispatchLocal({ type: "resetAll", state });
+    // 部屋の初期化は編集操作ではないので、閲覧のみでも必ず送る。
+    sendOp({ type: "resetAll", state });
   }
   syncTimer = setInterval(async () => {
     await flushOfflineQueue();
@@ -493,7 +494,16 @@ function renderCellLabel(td, text) {
   td.appendChild(span);
 }
 
+/* 編集opの唯一の出口。閲覧のみの時はここで止めるので、
+   画面側の無効化を1か所取りこぼしても勝手に上書きされることはない。 */
 function dispatchLocal(op) {
+  if (!editMode) return false;
+  sendOp(op);
+  return true;
+}
+
+// 部屋の初期化など、編集モードとは無関係に送る必要があるop用
+function sendOp(op) {
   applyOp(op);
   renderForOp(op);
   saveLocal();
@@ -529,7 +539,11 @@ function renderHeader() {
   const m = state.meta;
   Object.entries(META_INPUT_ID).forEach(([key, id]) => {
     const el = document.getElementById(id);
-    if (el) el.value = m[key] || "";
+    if (!el) return;
+    el.value = m[key] || "";
+    // 日付欄は readonly でもカレンダーから変えられてしまう環境があるので disabled にする
+    if (el.type === "date") el.disabled = !editMode;
+    else el.readOnly = !editMode;
   });
   renderToolbarName();
 }
@@ -545,6 +559,49 @@ function bindHeaderEvents() {
       dispatchLocal({ type: "setMeta", key, value: e.target.value });
     });
   });
+}
+
+/* ---------------- 編集モード ----------------
+   既定は「閲覧のみ」。編集ボタンを押している間だけ書き換えられる。
+   ページを開き直すと必ず閲覧のみに戻る（意図しない上書きを防ぐのが目的なので、
+   この状態はあえて保存しない）。 */
+let editMode = false;
+
+function setEditMode(on) {
+  editMode = !!on;
+  if (!editMode) closeLabelEditor();
+  document.body.classList.toggle("edit-mode", editMode);
+  renderEditModeUI();
+  renderAll();
+}
+
+function renderEditModeUI() {
+  const btn = $("#btn-edit-mode");
+  if (btn) {
+    btn.textContent = editMode ? "🔒 編集を終了" : "✏️ 編集する";
+    btn.title = editMode
+      ? "編集を終了して、閲覧のみに戻す"
+      : "工程表を編集できるようにする";
+    btn.setAttribute("aria-pressed", editMode ? "true" : "false");
+  }
+  const badge = $("#edit-status");
+  if (badge) {
+    badge.textContent = editMode ? "✏️ 編集中" : "🔒 閲覧のみ";
+    badge.title = editMode
+      ? "この画面での操作が全員に同期されます"
+      : "「✏️ 編集する」を押すまで書き換えられません";
+    badge.className = "edit-status" + (editMode ? " edit-status-on" : "");
+  }
+  ["btn-add-item", "btn-add-item-bottom", "btn-import"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !editMode;
+  });
+}
+
+function bindEditMode() {
+  const btn = $("#btn-edit-mode");
+  if (btn) btn.addEventListener("click", () => setEditMode(!editMode));
+  renderEditModeUI();
 }
 
 /* ---------------- 表示単位（日別／週間／月間） ----------------
@@ -866,6 +923,7 @@ function weekendClass(d) {
 let rowDrag = null;
 
 function startRowDrag(ev, itemId, tr) {
+  if (!editMode) return;
   if (ev.button !== undefined && ev.button !== 0) return;
   ev.preventDefault();
   ev.stopPropagation();
@@ -955,6 +1013,7 @@ function buildItemRow(item) {
   nameInput.className = "item-name-input" + (item.bold ? " bold" : "");
   nameInput.style.paddingLeft = (2 + level * 14) + "px";
   nameInput.value = item.name;
+  nameInput.readOnly = !editMode;
   nameInput.addEventListener("change", (e) => {
     dispatchLocal({ type: "renameItem", itemId: item.id, name: e.target.value });
   });
@@ -998,6 +1057,8 @@ function buildItemRow(item) {
     if (!confirm("この工種を削除しますか？")) return;
     dispatchLocal({ type: "removeItem", itemId: item.id });
   });
+
+  [outBtn, inBtn, upBtn, downBtn, delBtn].forEach((b) => { b.disabled = !editMode; });
 
   inner.appendChild(dragHandle);
   inner.appendChild(nameInput);
@@ -1059,6 +1120,7 @@ function closeLabelEditor() {
 }
 
 function openLabelEditor(td) {
+  if (!editMode) return;
   const itemId = td.dataset.itemId;
   const item = state.items.find((i) => i.id === itemId);
   if (!item) return;
@@ -1099,6 +1161,7 @@ function openLabelEditor(td) {
 function bindGanttPainting() {
   const scroll = $("#gantt-scroll");
   scroll.addEventListener("mousedown", (e) => {
+    if (!editMode) return;
     const td = e.target.closest(".gantt-cell");
     if (!td) return;
     e.preventDefault();
@@ -1116,6 +1179,7 @@ function bindGanttPainting() {
   document.addEventListener("mouseup", () => { painting = false; });
 
   scroll.addEventListener("touchstart", (e) => {
+    if (!editMode) return;
     const t = e.touches[0];
     const el = document.elementFromPoint(t.clientX, t.clientY);
     const td = el && el.closest(".gantt-cell");
@@ -1165,6 +1229,7 @@ function renderProgress() {
       input.dataset.kind = kind;
       input.dataset.month = mo.key;
       input.value = state.progress[kind][mo.key] ?? "";
+      input.disabled = !editMode;
       input.addEventListener("input", (e) => {
         const value = e.target.value === "" ? null : Number(e.target.value);
         dispatchLocal({ type: "setProgress", kind, monthKey: mo.key, value });
@@ -1397,6 +1462,7 @@ function init() {
   bindToolbar();
   bindViewSwitch();
   bindRangeFilter();
+  bindEditMode();
   renderAll();
   saveLocal();
 

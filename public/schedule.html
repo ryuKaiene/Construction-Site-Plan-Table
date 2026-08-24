@@ -15,6 +15,7 @@
       <div class="toolbar-title" id="toolbar-project-name">工事工程表</div>
     </div>
     <div class="toolbar-group">
+      <button type="button" id="btn-edit-mode" class="btn btn-edit-mode" aria-pressed="false">✏️ 編集する</button>
       <button id="btn-print" class="btn">🖶 印刷</button>
       <button id="btn-excel" class="btn btn-excel">📊 Excel出力</button>
       <button id="btn-export" class="btn">💾 保存(JSON)</button>
@@ -30,6 +31,7 @@
     <button id="tool-erase" class="btn tool-btn" title="消しゴム">🧽 消去</button>
     <button id="tool-label" class="btn tool-btn" title="工程バーに作業内容を記入">📝 作業名</button>
     <input type="color" id="custom-color" class="custom-color" title="カスタム色" value="#4f8ef7">
+    <span id="edit-status" class="edit-status">🔒 閲覧のみ</span>
     <span id="conn-status" class="conn-status conn-offline" title="接続状況">● オフライン</span>
     <span id="share-status" class="share-status"></span>
   </div>
@@ -125,6 +127,7 @@
   </main>
 
   <footer class="hint no-print">
+    ページを開いた直後は「🔒 閲覧のみ」です。書き換えるには「✏️ 編集する」を押してください（うっかり上書きするのを防ぐため、開き直すと閲覧のみに戻ります）／
     工程バーの作成：色を選んで日付セルをドラッグ ／ 作業内容の記入：「📝 作業名」を選んでバーの先頭セルをクリック ／
     工種名はダブルクリックで太字切替 ／
     「日別・週間・月間」は表示の粗さを変えるだけで、工程は常に日単位で保存されます（印刷も表示中のビューのまま出ます）／

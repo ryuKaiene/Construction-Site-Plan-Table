@@ -102,6 +102,12 @@ html, body {
 
 .btn:hover { background: #3a4256; }
 
+.btn:disabled, .btn:disabled:hover {
+  opacity: 0.4;
+  cursor: default;
+  background: #2b3140;
+}
+
 .btn-accent {
   background: var(--accent);
   border-color: var(--accent-dark);
@@ -159,6 +165,68 @@ html, body {
   padding: 0;
   cursor: pointer;
 }
+
+/* ---------- 編集モード ---------- */
+.btn-edit-mode {
+  background: var(--accent);
+  border-color: var(--accent-dark);
+  font-weight: 700;
+}
+.btn-edit-mode:hover { background: var(--accent-dark); }
+
+body.edit-mode .btn-edit-mode {
+  background: #b8621b;
+  border-color: #8c4a13;
+}
+body.edit-mode .btn-edit-mode:hover { background: #8c4a13; }
+
+.edit-status {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+  color: #555;
+  background: #e3e5ea;
+}
+.edit-status-on {
+  color: #8c4a13;
+  background: #ffe0bd;
+}
+
+/* 編集中は操作バーの色を変えて、書き換えられる状態だとひと目で分かるようにする */
+body.edit-mode .palette-bar {
+  background: #fff3e2;
+  border-bottom-color: #e0a04a;
+}
+
+/* 閲覧のみの時は、塗れる見た目・つかめる見た目を出さない */
+body:not(.edit-mode) .gantt-cell { cursor: default; }
+body:not(.edit-mode) .gantt-cell:hover { outline: none; }
+body:not(.edit-mode) .row-drag { visibility: hidden; }
+body:not(.edit-mode) .palette-label,
+body:not(.edit-mode) #palette,
+body:not(.edit-mode) #tool-erase,
+body:not(.edit-mode) #tool-label,
+body:not(.edit-mode) #custom-color {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* 書き換えを止めている間も、中身は今までどおり読めるようにしておく */
+.sh-input:disabled,
+.item-name-input[readonly],
+.sh-input[readonly],
+#progress-table input:disabled {
+  color: var(--text);
+  -webkit-text-fill-color: var(--text);
+  opacity: 1;
+  cursor: default;
+}
+.sh-input:disabled { background: transparent; }
+#progress-table input:disabled { background: #f7f8fa; }
+.row-btn:disabled { opacity: 0.25; cursor: default; }
+.row-btn:disabled:hover { color: #888; }
 
 .conn-status {
   font-size: 12px;
