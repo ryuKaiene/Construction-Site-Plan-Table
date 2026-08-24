@@ -311,6 +311,62 @@ main {
   font-weight: 700;
 }
 
+/* 表示期間の絞り込み */
+.gantt-toolbar-sub {
+  padding-top: 0;
+}
+
+.range-select, .range-input {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 3px 6px;
+}
+.range-select:focus, .range-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(47, 111, 237, 0.15);
+}
+
+.range-tilde { color: #777; }
+
+.range-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.range-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.range-btn:disabled:hover { background: #2b3140; }
+
+/* 絞り込み中は、全期間を見ているわけではないことがひと目で分かるようにする */
+.range-caption {
+  margin: 0 4px 8px;
+  padding: 5px 10px;
+  border-left: 4px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+  background: #eaf1ff;
+  color: var(--accent-dark);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.range-caption[hidden] { display: none; }
+
+.range-caption-warn {
+  border-left-color: var(--danger);
+  background: #fdecec;
+  color: #a12b2b;
+}
+
+.gantt-wrap.range-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(47, 111, 237, 0.18);
+}
+
 .btn-add-item {
   padding: 4px 12px;
   font-size: 12.5px;
@@ -743,6 +799,15 @@ body.row-drag-active {
   :root { --cell-w: 8px; --row-h: 16px; --label-w: 130px; }
   #gantt-table.view-week { --cell-w: 26px; }
   #gantt-table.view-month { --cell-w: 40px; }
+  /* 絞り込んだまま印刷した紙にも、どの期間かが残るようにする */
+  .range-caption {
+    margin: 0 0 4px;
+    padding: 0 0 2px;
+    border-left: none;
+    background: transparent;
+    color: #000;
+    font-size: 10px;
+  }
 }
 
 @media (max-width: 700px) {

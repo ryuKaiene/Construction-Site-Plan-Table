@@ -43,6 +43,12 @@ function dateRangeISO(startISO, endISO) {
   return dateRangeArray(startISO, endISO).map(isoDate);
 }
 
+function formatJP(iso) {
+  if (!iso) return "";
+  const d = parseISO(iso);
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+}
+
 function monthListBetween(startISO, endISO) {
   const out = [];
   if (!startISO || !endISO) return out;
@@ -121,6 +127,8 @@ const BATCH_LIMIT = 500;
 const STORAGE_KEY = "koutei-hyou-state-v1:" + roomId;
 // 表示単位（日別／週間／月間）は見え方の設定なので、opとして同期せず端末ごとに覚える
 const VIEW_KEY = "koutei-hyou-view-v1:" + roomId;
+// 表示期間の絞り込みも見え方の設定。opにはせず端末ごとに覚える
+const RANGE_KEY = "koutei-hyou-range-v1:" + roomId;
 
 let lastSeq = Number(localStorage.getItem(LASTSEQ_KEY) || "0") || 0;
 const appliedSeqs = new Set();
@@ -384,6 +392,7 @@ function renderForOp(op) {
     }
     case "setMeta": {
       if (op.key === "startDate" || op.key === "endDate") {
+        renderRangeUI();
         renderGantt();
         renderProgress();
       } else {
@@ -572,10 +581,153 @@ function bindViewSwitch() {
   renderViewSwitch();
 }
 
-/* 1列ぶんの情報を作る。days にはその列がまとめている日（工期内のみ）が入る。
+/* ---------------- 表示期間の絞り込み ----------------
+   「9月だけ」「9/1〜9/15だけ」のように、工期の一部を取り出して表示・印刷する。
+   絞り込んでも工程データには一切触らないので、全期間に戻せば元通り。 */
+let viewRange = loadViewRange();
+
+function loadViewRange() {
+  try {
+    const raw = localStorage.getItem(RANGE_KEY);
+    if (!raw) return null;
+    const r = JSON.parse(raw);
+    if (r && typeof r.from === "string" && typeof r.to === "string") return r;
+  } catch (e) { /* ignore */ }
+  return null;
+}
+
+function saveViewRange() {
+  try {
+    if (viewRange) localStorage.setItem(RANGE_KEY, JSON.stringify(viewRange));
+    else localStorage.removeItem(RANGE_KEY);
+  } catch (e) { /* ignore */ }
+}
+
+function setViewRange(from, to) {
+  if (!from || !to) return;
+  if (from > to) { const swap = from; from = to; to = swap; }
+  viewRange = { from, to };
+  saveViewRange();
+  renderRangeUI();
+  renderGantt();
+}
+
+function clearViewRange() {
+  if (!viewRange) return;
+  viewRange = null;
+  saveViewRange();
+  renderRangeUI();
+  renderGantt();
+}
+
+// 実際に表示する期間。指定が工期からはみ出していても工期の中に収める。
+function effectiveRange() {
+  const from = state.meta.startDate || "";
+  const to = state.meta.endDate || "";
+  if (!viewRange) return { from, to };
+  return {
+    from: viewRange.from > from ? viewRange.from : from,
+    to: viewRange.to < to ? viewRange.to : to
+  };
+}
+
+// 指定期間がちょうど1ヶ月ぶんなら、その月のキーを返す（月プルダウンの選択状態用）
+function wholeMonthKey(r) {
+  if (!r) return "";
+  const d = parseISO(r.from);
+  if (d.getDate() !== 1) return "";
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0, 12, 0, 0);
+  return r.to === isoDate(last) ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}` : "";
+}
+
+function renderRangeUI() {
+  const fromEl = $("#range-from");
+  const toEl = $("#range-to");
+  if (!fromEl || !toEl) return;
+
+  const r = effectiveRange();
+  if (document.activeElement !== fromEl) fromEl.value = viewRange ? viewRange.from : (state.meta.startDate || "");
+  if (document.activeElement !== toEl) toEl.value = viewRange ? viewRange.to : (state.meta.endDate || "");
+
+  const sel = $("#range-month");
+  if (sel && document.activeElement !== sel) {
+    const want = wholeMonthKey(viewRange);
+    sel.innerHTML = "";
+    const head = document.createElement("option");
+    head.value = "";
+    head.textContent = "月を選ぶ";
+    sel.appendChild(head);
+    monthListBetween(state.meta.startDate, state.meta.endDate).forEach((mo) => {
+      const o = document.createElement("option");
+      o.value = mo.key;
+      o.textContent = mo.label;
+      sel.appendChild(o);
+    });
+    sel.value = Array.from(sel.options).some((o) => o.value === want) ? want : "";
+  }
+
+  const active = !!viewRange;
+  const wrap = $(".gantt-wrap");
+  if (wrap) wrap.classList.toggle("range-active", active);
+
+  const clear = $("#range-clear");
+  if (clear) clear.disabled = !active;
+
+  const caption = $("#range-caption");
+  if (!caption) return;
+  if (!active) {
+    caption.hidden = true;
+    caption.textContent = "";
+    return;
+  }
+  const shown = dateRangeArray(r.from, r.to).length;
+  const total = dateRangeArray(state.meta.startDate, state.meta.endDate).length;
+  caption.hidden = false;
+  if (!shown) {
+    caption.className = "range-caption range-caption-warn";
+    caption.textContent =
+      `指定した期間（${formatJP(viewRange.from)}〜${formatJP(viewRange.to)}）は工期の外です。`;
+  } else {
+    caption.className = "range-caption";
+    caption.textContent =
+      `表示期間：${formatJP(r.from)} 〜 ${formatJP(r.to)}（全${total}日のうち${shown}日ぶんを表示中）`;
+  }
+}
+
+function bindRangeFilter() {
+  const fromEl = $("#range-from");
+  const toEl = $("#range-to");
+  if (!fromEl || !toEl) return;
+
+  const applyNow = () => {
+    if (!fromEl.value || !toEl.value) return;
+    setViewRange(fromEl.value, toEl.value);
+  };
+  [fromEl, toEl].forEach((el) => el.addEventListener("change", applyNow));
+
+  const sel = $("#range-month");
+  if (sel) {
+    sel.addEventListener("change", () => {
+      if (!sel.value) { clearViewRange(); return; }
+      const [y, m] = sel.value.split("-").map(Number);
+      setViewRange(
+        isoDate(new Date(y, m - 1, 1, 12, 0, 0)),
+        isoDate(new Date(y, m, 0, 12, 0, 0))
+      );
+    });
+  }
+
+  const clear = $("#range-clear");
+  if (clear) clear.addEventListener("click", clearViewRange);
+
+  renderRangeUI();
+}
+
+/* 1列ぶんの情報を作る。days にはその列がまとめている日（表示期間内のみ）が入る。
    groupKey が同じ列は、ヘッダの1段目でひとまとめにされる。 */
 function buildColumns() {
-  const days = dateRangeArray(state.meta.startDate, state.meta.endDate);
+  const r = effectiveRange();
+  const days = dateRangeArray(r.from, r.to);
   if (viewMode === "week") return weekColumns(days);
   if (viewMode === "month") return monthColumns(days);
   return dayColumns(days);
@@ -1223,6 +1375,7 @@ function $$(sel) { return Array.from(document.querySelectorAll(sel)); }
 
 function renderAll() {
   renderHeader();
+  renderRangeUI();
   renderGantt();
   renderProgress();
 }
@@ -1243,6 +1396,7 @@ function init() {
   bindGanttPainting();
   bindToolbar();
   bindViewSwitch();
+  bindRangeFilter();
   renderAll();
   saveLocal();
 

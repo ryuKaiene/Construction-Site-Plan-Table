@@ -90,6 +90,18 @@
           ⠿ をつかんでドラッグすると並べ替え／ ◀ ▶ で階層（大工種→中工種→作業）／ ▲ ▼ でも1行ずつ移動できます
         </span>
       </div>
+      <div class="gantt-toolbar gantt-toolbar-sub no-print">
+        <span class="gantt-toolbar-title">表示期間</span>
+        <select id="range-month" class="range-select" title="工期内の月をまるごと表示"></select>
+        <input type="date" id="range-from" class="range-input" title="表示する期間の開始日">
+        <span class="range-tilde">〜</span>
+        <input type="date" id="range-to" class="range-input" title="表示する期間の終了日">
+        <button type="button" id="range-clear" class="btn range-btn">全期間に戻す</button>
+        <span class="gantt-toolbar-hint">
+          見たい期間だけを取り出して表示・印刷できます（工程データは変わりません）
+        </span>
+      </div>
+      <div id="range-caption" class="range-caption" hidden></div>
       <div class="gantt-scroll" id="gantt-scroll">
         <table id="gantt-table">
           <thead id="gantt-thead"></thead>
