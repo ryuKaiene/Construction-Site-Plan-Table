@@ -512,6 +512,27 @@ main {
 }
 .row-btn:hover { color: var(--danger); }
 
+/* 階層の折りたたみ（閲覧のみモードでも押せる） */
+.row-twisty {
+  flex: 0 0 auto;
+  width: 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 9px;
+  color: #667;
+  padding: 0;
+  line-height: 1;
+}
+.row-twisty:hover { color: var(--accent); }
+.row-twisty-empty { cursor: default; visibility: hidden; }
+
+/* 折りたたみ中の親は、中に隠れた行があることが分かるようにする */
+tr.row-collapsed .item-name-input { font-style: italic; }
+tr.row-collapsed .td-label {
+  box-shadow: inset 0 -2px 0 -1px var(--accent);
+}
+
 /* 行のドラッグ並べ替え */
 .row-drag {
   flex: 0 0 auto;
@@ -849,33 +870,132 @@ body.row-drag-active {
   text-align: center;
 }
 
-/* ---------- Print ---------- */
+/* ---------- Print ----------
+   印刷は画面の表をそのまま出すのではなく、script.js が #print-root に組み直した
+   専用の紙面を出す。1枚に工種すべてが載り、工期が長いときだけ横に紙が増える。 */
+#print-root { display: none; }
+
 @media print {
   @page { size: A3 landscape; margin: 8mm; }
-  body { background: #fff; font-size: 9px; }
+  html, body { background: #fff; }
+
+  /* 印刷用DOMを組み終えた時だけ画面用UIを伏せる（組めなかった時は従来通り出す） */
+  body.printing > .app { display: none !important; }
+  body.printing #print-root { display: block; }
   .no-print { display: none !important; }
-  .app { min-height: 0; }
-  main { padding: 0; }
-  .sheet-header, .gantt-wrap, .progress-wrap {
-    border: none;
-    box-shadow: none;
+
+  .print-page {
+    position: relative;
+    width: 403mm;
+    height: 280mm;
+    overflow: hidden;
+    page-break-after: always;
+    break-after: page;
     page-break-inside: avoid;
-  }
-  .gantt-scroll { overflow: visible; }
-  .row-btn, .row-drag { display: none; }
-  .bar-label { font-size: 7px; }
-  :root { --cell-w: 8px; --row-h: 16px; --label-w: 130px; }
-  #gantt-table.view-week { --cell-w: 26px; }
-  #gantt-table.view-month { --cell-w: 40px; }
-  /* 絞り込んだまま印刷した紙にも、どの期間かが残るようにする */
-  .range-caption {
-    margin: 0 0 4px;
-    padding: 0 0 2px;
-    border-left: none;
-    background: transparent;
+    break-inside: avoid;
     color: #000;
-    font-size: 10px;
   }
+  .print-page:last-child { page-break-after: auto; break-after: auto; }
+
+  /* 高さを固定しておく。ここが伸び縮みすると script.js 側の行数計算とズレる */
+  .print-head {
+    height: 26mm;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .print-title {
+    font-size: 13pt;
+    font-weight: 700;
+    letter-spacing: 0.35em;
+    text-align: center;
+    margin: 0 0 1.5mm;
+  }
+
+  .print-meta {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.6mm 3mm;
+    font-size: 7pt;
+    margin-bottom: 1.2mm;
+  }
+  .print-meta-item {
+    display: flex;
+    gap: 1.5mm;
+    border-bottom: 0.2mm solid #999;
+    padding-bottom: 0.4mm;
+    min-width: 0;
+  }
+  .print-meta-key { flex: 0 0 auto; color: #333; }
+  .print-meta-val {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .print-subhead {
+    display: flex;
+    justify-content: space-between;
+    font-size: 7pt;
+    margin-bottom: 1mm;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .print-table th, .print-table td {
+    border: 0.2mm solid #9aa0a6;
+    padding: 0;
+    text-align: center;
+    overflow: hidden;
+    line-height: 1;
+  }
+  .print-table .p-th { background: #eceef1; font-weight: 600; }
+  .print-table .p-month { white-space: nowrap; }
+  .print-table .p-label {
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 1mm;
+  }
+  .print-table td.p-label.lv0 { background: #eef0f3; }
+  .print-table td.p-label.lv1 { background: #f6f7f8; }
+  .print-table .p-bold { font-weight: 700; }
+  .print-table .p-cell { position: relative; }
+  .print-table .td-sat { background: var(--sat); }
+  .print-table .td-sun { background: var(--sun); }
+
+  /* 作業名はセル幅に収まらないので、右へはみ出して表示する（紙の端で切れる） */
+  .p-bar-label {
+    position: absolute;
+    left: 0.3mm;
+    top: 50%;
+    transform: translateY(-50%);
+    white-space: nowrap;
+    background: rgba(255, 255, 255, 0.88);
+    padding: 0 0.4mm;
+    z-index: 2;
+  }
+
+  .print-progress-table {
+    border-collapse: collapse;
+    font-size: 8pt;
+    margin-bottom: 4mm;
+  }
+  .print-progress-table th, .print-progress-table td {
+    border: 0.2mm solid #9aa0a6;
+    padding: 1mm 2mm;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .print-progress-table th { background: #eceef1; }
+  .print-chart { max-width: 100%; height: auto; }
 }
 
 @media (max-width: 700px) {
