@@ -129,6 +129,8 @@ const STORAGE_KEY = "koutei-hyou-state-v1:" + roomId;
 const VIEW_KEY = "koutei-hyou-view-v1:" + roomId;
 // 表示期間の絞り込みも見え方の設定。opにはせず端末ごとに覚える
 const RANGE_KEY = "koutei-hyou-range-v1:" + roomId;
+// 折りたたみも見え方の設定。共有すると他の人の画面が勝手に畳まれてしまうので端末ごとに覚える
+const COLLAPSE_KEY = "koutei-hyou-collapsed-v1:" + roomId;
 
 let lastSeq = Number(localStorage.getItem(LASTSEQ_KEY) || "0") || 0;
 const appliedSeqs = new Set();
@@ -859,6 +861,64 @@ function monthColumns(days) {
   return cols;
 }
 
+/* ---------------- 階層の折りたたみ ---------------- */
+let collapsedIds = loadCollapsed();
+
+function loadCollapsed() {
+  try {
+    const raw = localStorage.getItem(COLLAPSE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch (e) { return new Set(); }
+}
+
+function saveCollapsed() {
+  try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...collapsedIds])); } catch (e) { /* ignore */ }
+}
+
+function itemLevel(item) {
+  return Math.max(0, Math.min(MAX_LEVEL, Number(item.level) || 0));
+}
+
+/* 工種の並びを上から見て、各行の階層・子の有無・折りたたみで隠れているかを判定する。
+   「子」は、自分より下にあって自分より深い階層が続いている間の行。 */
+function outlineRows() {
+  const items = state.items;
+  const rows = items.map((item, i) => {
+    const level = itemLevel(item);
+    const next = items[i + 1];
+    return {
+      item,
+      level,
+      hasChildren: !!next && itemLevel(next) > level,
+      collapsed: false,
+      hidden: false
+    };
+  });
+
+  rows.forEach((row, i) => {
+    row.collapsed = row.hasChildren && collapsedIds.has(row.item.id);
+    if (!row.collapsed) return;
+    for (let j = i + 1; j < rows.length; j++) {
+      if (rows[j].level <= row.level) break;
+      rows[j].hidden = true;
+    }
+  });
+
+  return rows;
+}
+
+function visibleRows() {
+  return outlineRows().filter((r) => !r.hidden);
+}
+
+function toggleCollapse(id) {
+  if (collapsedIds.has(id)) collapsedIds.delete(id);
+  else collapsedIds.add(id);
+  saveCollapsed();
+  renderGantt();
+}
+
 /* ---------------- rendering: gantt ---------------- */
 let colList = [];
 
@@ -908,8 +968,8 @@ function renderGantt() {
   thead.appendChild(topRow);
   thead.appendChild(bottomRow);
 
-  state.items.forEach((item) => {
-    tbody.appendChild(buildItemRow(item));
+  visibleRows().forEach((row) => {
+    tbody.appendChild(buildItemRow(row));
   });
 }
 
@@ -977,26 +1037,59 @@ function finishRowDrag() {
 function endRowDrag() {
   const ctx = finishRowDrag();
   if (!ctx) return;
-  const toIndex = Array.from(ctx.tbody.children).indexOf(ctx.tr);
-  if (toIndex < 0 || toIndex === ctx.fromIndex) {
+  const domRows = Array.from(ctx.tbody.children);
+  const domIndex = domRows.indexOf(ctx.tr);
+  if (domIndex < 0 || domIndex === ctx.fromIndex) {
     renderGantt(); // 動かなかった場合もDOMを状態に戻す
     return;
   }
+  const toIndex = dropIndexInState(ctx.itemId, domRows, domIndex);
+  if (toIndex === null) {
+    renderGantt();
+    return;
+  }
   dispatchLocal({ type: "reorderItem", itemId: ctx.itemId, toIndex });
+}
+
+/* 折りたたみで隠れている行があるため、画面での位置をそのまま state の添字には使えない。
+   「すぐ上に見えている行の後ろに入れる」と読み替えて、本来の位置に変換する。
+   その行が折りたたまれた親なら、隠れている配下ごと飛び越えて後ろに置く。 */
+function dropIndexInState(itemId, domRows, domIndex) {
+  const without = state.items.filter((it) => it.id !== itemId);
+  if (without.length === state.items.length) return null; // 動かす行が見つからない
+
+  let prevId = null;
+  for (let i = domIndex - 1; i >= 0; i--) {
+    const id = domRows[i].dataset.itemId;
+    if (id && id !== itemId) { prevId = id; break; }
+  }
+  if (!prevId) return 0; // 一番上へ移動
+
+  const prevIdx = without.findIndex((it) => it.id === prevId);
+  if (prevIdx < 0) return null;
+
+  let insertAt = prevIdx + 1;
+  if (collapsedIds.has(prevId)) {
+    const prevLevel = itemLevel(without[prevIdx]);
+    while (insertAt < without.length && itemLevel(without[insertAt]) > prevLevel) insertAt++;
+  }
+  return insertAt;
 }
 
 function cancelRowDrag() {
   if (finishRowDrag()) renderGantt();
 }
 
-function buildItemRow(item) {
+function buildItemRow(row) {
   // 旧データ対策：level / cells / labels が無くても描画できるようにする
-  const level = Math.max(0, Math.min(MAX_LEVEL, Number(item.level) || 0));
+  const item = row.item;
+  const level = row.level;
   const cells = item.cells && typeof item.cells === "object" ? item.cells : {};
   const labels = item.labels && typeof item.labels === "object" ? item.labels : {};
 
   const tr = document.createElement("tr");
   tr.dataset.itemId = item.id;
+  if (row.collapsed) tr.classList.add("row-collapsed");
 
   const labelTd = document.createElement("td");
   labelTd.className = "td-label lv" + level;
@@ -1008,6 +1101,20 @@ function buildItemRow(item) {
   dragHandle.textContent = "⠿";
   dragHandle.title = "ドラッグで並べ替え";
   dragHandle.addEventListener("pointerdown", (e) => startRowDrag(e, item.id, tr));
+
+  // 折りたたみは見え方の操作なので、閲覧のみモードでも押せるようにしておく
+  const twisty = document.createElement("button");
+  twisty.className = "row-twisty";
+  if (row.hasChildren) {
+    twisty.textContent = row.collapsed ? "▶" : "▼";
+    twisty.title = row.collapsed ? "この工種の中を表示する" : "この工種の中を折りたたむ（印刷にも出なくなります）";
+    twisty.addEventListener("click", () => toggleCollapse(item.id));
+  } else {
+    twisty.classList.add("row-twisty-empty");
+    twisty.textContent = "";
+    twisty.tabIndex = -1;
+    twisty.setAttribute("aria-hidden", "true");
+  }
 
   const nameInput = document.createElement("input");
   nameInput.className = "item-name-input" + (item.bold ? " bold" : "");
@@ -1037,18 +1144,6 @@ function buildItemRow(item) {
     if (level < MAX_LEVEL) dispatchLocal({ type: "setLevel", itemId: item.id, level: level + 1 });
   });
 
-  const upBtn = document.createElement("button");
-  upBtn.className = "row-btn";
-  upBtn.textContent = "▲";
-  upBtn.title = "上へ移動";
-  upBtn.addEventListener("click", () => dispatchLocal({ type: "moveItem", itemId: item.id, dir: -1 }));
-
-  const downBtn = document.createElement("button");
-  downBtn.className = "row-btn";
-  downBtn.textContent = "▼";
-  downBtn.title = "下へ移動";
-  downBtn.addEventListener("click", () => dispatchLocal({ type: "moveItem", itemId: item.id, dir: 1 }));
-
   const delBtn = document.createElement("button");
   delBtn.className = "row-btn";
   delBtn.textContent = "✕";
@@ -1058,14 +1153,13 @@ function buildItemRow(item) {
     dispatchLocal({ type: "removeItem", itemId: item.id });
   });
 
-  [outBtn, inBtn, upBtn, downBtn, delBtn].forEach((b) => { b.disabled = !editMode; });
+  [outBtn, inBtn, delBtn].forEach((b) => { b.disabled = !editMode; });
 
   inner.appendChild(dragHandle);
+  inner.appendChild(twisty);
   inner.appendChild(nameInput);
   inner.appendChild(outBtn);
   inner.appendChild(inBtn);
-  inner.appendChild(upBtn);
-  inner.appendChild(downBtn);
   inner.appendChild(delBtn);
   labelTd.appendChild(inner);
   tr.appendChild(labelTd);
@@ -1206,6 +1300,301 @@ function addItem() {
     type: "addItem",
     item: { id: uid(), name: "新規工種", bold: false, level: last ? last.level : 0, cells: {}, labels: {} }
   });
+}
+
+/* ---------------- 印刷レイアウト ----------------
+   画面の表をそのまま印刷すると、工種が多いときに「基本情報 → 工程表の上半分 →
+   工程表の下半分」と縦に切れてしまい読めない。そこで印刷時は専用のDOMを組み直し、
+   ・工種（縦）は1枚に収める
+   ・工期（横）が長いときだけ2枚目・3枚目…と横に続く
+   ・折りたたんだ工種は出さない
+   という紙面にする。単位はA3横の実寸(mm)で計算する。 */
+const PRINT_MM = {
+  pageW: 420, pageH: 297, margin: 8,
+  safety: 1,       // 端数で1枚あふれないための余裕
+  labelW: 44,      // 項目欄の幅
+  headH: 26,       // 工事情報ブロックの高さ（CSSで固定してある）
+  theadH: 12,      // 月・日・曜日の3行ぶん（各行に高さを指定する）
+  colPref: { day: 3.0, week: 9, month: 16 },   // 1列の理想幅（広げすぎない上限）
+  colMin:  { day: 2.2, week: 6, month: 11 },   // 1列の下限（これ以上は詰めない）
+  rowPref: 7,      // 1行の理想高さ
+  rowMin: 3.6      // 1行の下限
+};
+
+// 紙1枚の実際の描画領域（CSSの .print-page と必ず同じ値にすること）
+function printPageBox() {
+  const P = PRINT_MM;
+  return {
+    w: P.pageW - P.margin * 2 - P.safety,
+    h: P.pageH - P.margin * 2 - P.safety
+  };
+}
+
+function chunkArray(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+function buildPrintLayout() {
+  const root = document.getElementById("print-root");
+  if (!root) return;
+  root.innerHTML = "";
+
+  const cols = buildColumns();
+  const rows = visibleRows();
+  if (!cols.length || !rows.length) return;
+
+  const P = PRINT_MM;
+  const box = printPageBox();
+  const gridW = box.w - P.labelW;
+  const gridH = box.h - P.headH - P.theadH;
+
+  // 横：1枚に入る列数。最後の紙だけスカスカにならないよう、枚数を出してから均等に割り直す。
+  let perPage = Math.max(1, Math.floor(gridW / P.colMin[viewMode]));
+  const across = Math.max(1, Math.ceil(cols.length / perPage));
+  perPage = Math.ceil(cols.length / across);
+  const colW = Math.min(gridW / perPage, P.colPref[viewMode]);
+
+  // 縦：工種は原則1枚に収める。下限まで詰めても入らないときだけ行も分ける。
+  let rowH = Math.min(gridH / rows.length, P.rowPref);
+  let perBand = rows.length;
+  if (rowH < P.rowMin) {
+    rowH = P.rowMin;
+    perBand = Math.max(1, Math.floor(gridH / rowH));
+  }
+
+  const colChunks = chunkArray(cols, perPage);
+  const rowBands = chunkArray(rows, perBand);
+  const total = colChunks.length * rowBands.length;
+
+  let n = 0;
+  rowBands.forEach((band) => {
+    colChunks.forEach((cc) => {
+      n++;
+      root.appendChild(buildPrintPage(band, cc, colW, rowH, n, total));
+    });
+  });
+
+  const progressPage = buildProgressPage();
+  if (progressPage) root.appendChild(progressPage);
+}
+
+function clearPrintLayout() {
+  const root = document.getElementById("print-root");
+  if (root) root.innerHTML = "";
+  document.body.classList.remove("printing");
+}
+
+function buildPrintHead(cols, pageNo, pageTotal) {
+  const m = state.meta;
+  const head = document.createElement("div");
+  head.className = "print-head";
+
+  const title = document.createElement("div");
+  title.className = "print-title";
+  title.textContent = "工 事 工 程 表";
+  head.appendChild(title);
+
+  const grid = document.createElement("div");
+  grid.className = "print-meta";
+  const period = [m.startDate ? formatJP(m.startDate) : "", m.endDate ? formatJP(m.endDate) : ""]
+    .filter(Boolean).join(" 〜 ");
+  [
+    ["工　事　名", m.projectName],
+    ["工 事 場 所", m.location],
+    ["発　注　者", m.orderer],
+    ["設 計 ・ 監 理", m.supervisor],
+    ["施　工　者", m.contractor],
+    ["契 約 年 月 日", m.contractDate ? formatJP(m.contractDate) : ""],
+    ["工　　　期", period],
+    ["作　成　日", m.createdDate ? formatJP(m.createdDate) : ""]
+  ].forEach(([k, v]) => {
+    const cell = document.createElement("div");
+    cell.className = "print-meta-item";
+    const key = document.createElement("span");
+    key.className = "print-meta-key";
+    key.textContent = k;
+    const val = document.createElement("span");
+    val.className = "print-meta-val";
+    val.textContent = v || "";
+    cell.appendChild(key);
+    cell.appendChild(val);
+    grid.appendChild(cell);
+  });
+  head.appendChild(grid);
+
+  const sub = document.createElement("div");
+  sub.className = "print-subhead";
+  const first = cols[0];
+  const last = cols[cols.length - 1];
+  const span = document.createElement("span");
+  span.textContent = `この紙の期間：${formatJP(first.days[0])} 〜 ${formatJP(last.days[last.days.length - 1])}`;
+  const pno = document.createElement("span");
+  pno.textContent = `${pageNo} / ${pageTotal}`;
+  sub.appendChild(span);
+  sub.appendChild(pno);
+  head.appendChild(sub);
+
+  return head;
+}
+
+function buildPrintPage(rows, cols, colW, rowH, pageNo, pageTotal) {
+  const P = PRINT_MM;
+  const page = document.createElement("section");
+  page.className = "print-page";
+  page.appendChild(buildPrintHead(cols, pageNo, pageTotal));
+
+  const table = document.createElement("table");
+  table.className = "print-table";
+  table.style.fontSize = Math.max(5, Math.min(8, rowH * 1.15)).toFixed(2) + "pt";
+
+  const colgroup = document.createElement("colgroup");
+  const firstCol = document.createElement("col");
+  firstCol.style.width = P.labelW + "mm";
+  colgroup.appendChild(firstCol);
+  cols.forEach(() => {
+    const c = document.createElement("col");
+    c.style.width = colW.toFixed(3) + "mm";
+    colgroup.appendChild(c);
+  });
+  table.appendChild(colgroup);
+
+  const thead = document.createElement("thead");
+  const groupRow = document.createElement("tr");
+  const th0 = document.createElement("th");
+  th0.className = "p-th p-label";
+  th0.rowSpan = 3;
+  th0.textContent = "項　目";
+  groupRow.appendChild(th0);
+  let i = 0;
+  while (i < cols.length) {
+    const key = cols[i].groupKey;
+    let span = 0;
+    while (i + span < cols.length && cols[i + span].groupKey === key) span++;
+    const th = document.createElement("th");
+    th.className = "p-th p-month";
+    th.colSpan = span;
+    th.textContent = cols[i].groupLabel;
+    groupRow.appendChild(th);
+    i += span;
+  }
+  thead.appendChild(groupRow);
+
+  const topRow = document.createElement("tr");
+  const botRow = document.createElement("tr");
+  cols.forEach((col) => {
+    const a = document.createElement("th");
+    a.className = "p-th" + col.cls;
+    a.textContent = col.top;
+    topRow.appendChild(a);
+    const b = document.createElement("th");
+    b.className = "p-th" + col.cls;
+    b.textContent = col.bottom;
+    botRow.appendChild(b);
+  });
+  thead.appendChild(topRow);
+  thead.appendChild(botRow);
+  // 見出しの高さを決め打ちにして、本体の行数計算とズレないようにする
+  const headRowH = (P.theadH / 3).toFixed(3) + "mm";
+  [groupRow, topRow, botRow].forEach((tr) => { tr.style.height = headRowH; });
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  rows.forEach((row) => {
+    const item = row.item;
+    const cells = item.cells && typeof item.cells === "object" ? item.cells : {};
+    const labels = item.labels && typeof item.labels === "object" ? item.labels : {};
+
+    const tr = document.createElement("tr");
+    tr.style.height = rowH.toFixed(3) + "mm";
+
+    const nameTd = document.createElement("td");
+    nameTd.className = "p-label lv" + row.level + (item.bold ? " p-bold" : "");
+    nameTd.style.paddingLeft = (1.5 + row.level * 3).toFixed(2) + "mm";
+    // 折りたたんだ親は、中に隠れている行があることが紙面でも分かるようにする
+    nameTd.textContent = (row.collapsed ? "▶ " : "") + (item.name || "");
+    tr.appendChild(nameTd);
+
+    cols.forEach((col) => {
+      const td = document.createElement("td");
+      td.className = "p-cell" + col.cls;
+      const bg = bucketBackground(cells, col.days);
+      if (bg) td.style.background = bg;
+      const iso = col.days.find((d) => labels[d]);
+      if (iso) {
+        const span = document.createElement("span");
+        span.className = "p-bar-label";
+        span.textContent = labels[iso];
+        td.appendChild(span);
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  page.appendChild(table);
+
+  return page;
+}
+
+// 出来高率（表とS字カーブ）は最後の1枚にまとめる
+function buildProgressPage() {
+  const months = monthListBetween(state.meta.startDate, state.meta.endDate);
+  if (!months.length) return null;
+
+  const page = document.createElement("section");
+  page.className = "print-page print-page-progress";
+
+  const title = document.createElement("div");
+  title.className = "print-title";
+  title.textContent = "出 来 高 率（S字カーブ）";
+  page.appendChild(title);
+
+  const table = document.createElement("table");
+  table.className = "print-progress-table";
+  const head = document.createElement("tr");
+  head.appendChild(printTh("月"));
+  months.forEach((mo) => head.appendChild(printTh(mo.label)));
+  table.appendChild(head);
+
+  [["計 画 (%)", "plan"], ["実 績 (%)", "actual"]].forEach(([label, kind]) => {
+    const tr = document.createElement("tr");
+    tr.appendChild(printTh(label));
+    months.forEach((mo) => {
+      const td = document.createElement("td");
+      const v = state.progress && state.progress[kind] ? state.progress[kind][mo.key] : null;
+      td.textContent = (v === undefined || v === null || v === "") ? "" : String(v);
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+  page.appendChild(table);
+
+  // 画面で描いてあるグラフをそのまま画像として貼る
+  const canvas = document.getElementById("progress-canvas");
+  if (canvas) {
+    try {
+      const img = document.createElement("img");
+      img.className = "print-chart";
+      img.src = canvas.toDataURL("image/png");
+      page.appendChild(img);
+    } catch (e) { /* 画像化できない環境ではグラフ無しで印刷する */ }
+  }
+
+  return page;
+}
+
+function printTh(text) {
+  const th = document.createElement("th");
+  th.textContent = text;
+  return th;
+}
+
+function doPrint() {
+  document.body.classList.add("printing");
+  buildPrintLayout();
+  window.print();
 }
 
 /* ---------------- rendering: progress / S-curve ---------------- */
@@ -1350,7 +1739,13 @@ function selectColor(color, btnEl) {
 function bindToolbar() {
   $("#btn-add-item").addEventListener("click", addItem);
   $("#btn-add-item-bottom").addEventListener("click", addItem);
-  $("#btn-print").addEventListener("click", () => window.print());
+  $("#btn-print").addEventListener("click", doPrint);
+  // Ctrl+P など、ボタン以外から印刷された時も同じ紙面になるようにする
+  window.addEventListener("beforeprint", () => {
+    document.body.classList.add("printing");
+    buildPrintLayout();
+  });
+  window.addEventListener("afterprint", clearPrintLayout);
 
   $("#btn-excel").addEventListener("click", () => {
     try {
