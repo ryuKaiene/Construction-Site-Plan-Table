@@ -283,6 +283,34 @@ main {
   color: #777;
 }
 
+/* 表示単位の切り替え（日別／週間／月間） */
+.view-switch {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.view-btn {
+  border: none;
+  border-left: 1px solid var(--border);
+  background: #fff;
+  color: #444;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 4px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.view-btn:first-child { border-left: none; }
+.view-btn:hover { background: #eef2fb; }
+.view-btn.selected {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
 .btn-add-item {
   padding: 4px 12px;
   font-size: 12.5px;
@@ -304,6 +332,10 @@ main {
   border-collapse: collapse;
   table-layout: fixed;
 }
+
+/* 週間・月間ビューは1列が複数日ぶんなので、列幅を広げて日付が読めるようにする */
+#gantt-table.view-week { --cell-w: 46px; }
+#gantt-table.view-month { --cell-w: 66px; }
 
 #gantt-table th, #gantt-table td {
   border: 1px solid var(--border);
@@ -709,6 +741,8 @@ body.row-drag-active {
   .row-btn, .row-drag { display: none; }
   .bar-label { font-size: 7px; }
   :root { --cell-w: 8px; --row-h: 16px; --label-w: 130px; }
+  #gantt-table.view-week { --cell-w: 26px; }
+  #gantt-table.view-month { --cell-w: 40px; }
 }
 
 @media (max-width: 700px) {

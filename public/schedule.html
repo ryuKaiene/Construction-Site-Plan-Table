@@ -81,6 +81,11 @@
       <div class="gantt-toolbar no-print">
         <span class="gantt-toolbar-title">工事項目（工種）</span>
         <button id="btn-add-item" class="btn btn-accent btn-add-item">＋ 工種を追加</button>
+        <div class="view-switch" role="group" aria-label="表示単位">
+          <button type="button" class="view-btn" data-view="day">日別</button>
+          <button type="button" class="view-btn" data-view="week">週間</button>
+          <button type="button" class="view-btn" data-view="month">月間</button>
+        </div>
         <span class="gantt-toolbar-hint">
           ⠿ をつかんでドラッグすると並べ替え／ ◀ ▶ で階層（大工種→中工種→作業）／ ▲ ▼ でも1行ずつ移動できます
         </span>
@@ -110,6 +115,7 @@
   <footer class="hint no-print">
     工程バーの作成：色を選んで日付セルをドラッグ ／ 作業内容の記入：「📝 作業名」を選んでバーの先頭セルをクリック ／
     工種名はダブルクリックで太字切替 ／
+    「日別・週間・月間」は表示の粗さを変えるだけで、工程は常に日単位で保存されます（印刷も表示中のビューのまま出ます）／
     「🟢 自動同期中」の間は、このURLを開いた全員の編集が数秒おきに自動で同期されます。
   </footer>
 

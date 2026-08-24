@@ -39,6 +39,10 @@ function dateRangeArray(startISO, endISO) {
   return out;
 }
 
+function dateRangeISO(startISO, endISO) {
+  return dateRangeArray(startISO, endISO).map(isoDate);
+}
+
 function monthListBetween(startISO, endISO) {
   const out = [];
   if (!startISO || !endISO) return out;
@@ -115,6 +119,8 @@ const POLL_INTERVAL_MS = 2000;
 const BATCH_LIMIT = 500;
 
 const STORAGE_KEY = "koutei-hyou-state-v1:" + roomId;
+// 表示単位（日別／週間／月間）は見え方の設定なので、opとして同期せず端末ごとに覚える
+const VIEW_KEY = "koutei-hyou-view-v1:" + roomId;
 
 let lastSeq = Number(localStorage.getItem(LASTSEQ_KEY) || "0") || 0;
 const appliedSeqs = new Set();
@@ -254,6 +260,25 @@ function applyOp(op) {
       }
       break;
     }
+    // 週間・月間ビューで1セルを塗った時。日単位のデータに展開して持つので、
+    // 保存されている工程はどのビューで編集しても日単位のまま。
+    case "paintRange": {
+      const item = state.items.find((i) => i.id === op.itemId);
+      if (item) {
+        for (const iso of dateRangeISO(op.from, op.to)) item.cells[iso] = op.color;
+      }
+      break;
+    }
+    case "eraseRange": {
+      const item = state.items.find((i) => i.id === op.itemId);
+      if (item) {
+        for (const iso of dateRangeISO(op.from, op.to)) {
+          delete item.cells[iso];
+          delete item.labels[iso];
+        }
+      }
+      break;
+    }
     case "setLabel": {
       const item = state.items.find((i) => i.id === op.itemId);
       if (item) {
@@ -317,17 +342,20 @@ function applyOp(op) {
 function renderForOp(op) {
   switch (op.type) {
     case "paint":
-    case "erase": {
-      const td = findCell(op.itemId, op.date);
-      if (td) {
-        td.style.background = op.type === "paint" ? op.color : "";
-        if (op.type === "erase") renderCellLabel(td, "");
-      }
+    case "erase":
+    case "setLabel":
+      refreshCell(op.itemId, op.date);
       break;
-    }
-    case "setLabel": {
-      const td = findCell(op.itemId, op.date);
-      if (td) renderCellLabel(td, op.text);
+    case "paintRange":
+    case "eraseRange": {
+      // 週間・月間ビューでは複数日が1セルにまとまるので、同じセルは1回だけ描き直す
+      const done = new Set();
+      for (const iso of dateRangeISO(op.from, op.to)) {
+        const td = findCell(op.itemId, iso);
+        if (!td || done.has(td)) continue;
+        done.add(td);
+        refreshCell(op.itemId, iso);
+      }
       break;
     }
     case "setLevel":
@@ -385,9 +413,64 @@ function cssEscape(s) {
 }
 
 function findCell(itemId, date) {
-  return document.querySelector(
+  const direct = document.querySelector(
     `.gantt-cell[data-item-id="${cssEscape(itemId)}"][data-date="${date}"]`
   );
+  if (direct) return direct;
+  // 週間・月間ビューでは、その日をまとめている列のセルを返す
+  const col = colList.find((c) => c.days.includes(date));
+  if (!col) return null;
+  return document.querySelector(
+    `.gantt-cell[data-item-id="${cssEscape(itemId)}"][data-col-key="${col.key}"]`
+  );
+}
+
+// そのセルが受け持つ日。日別ビューなら1日、週間・月間ビューならその期間ぶん。
+function cellDays(td) {
+  const col = colList.find((c) => c.key === td.dataset.colKey);
+  if (col) return col.days;
+  return td.dataset.date ? [td.dataset.date] : [];
+}
+
+/* 期間内の色を1つの背景にまとめる。全部同じ色ならベタ塗り、
+   途中で色が変わる／塗っていない日が混ざる場合は日数の比率どおりに描き分ける。 */
+function bucketBackground(cells, days) {
+  if (days.length === 1) return cells[days[0]] || "";
+  const segs = [];
+  let painted = false;
+  days.forEach((iso) => {
+    const color = cells[iso] || null;
+    if (color) painted = true;
+    const last = segs[segs.length - 1];
+    if (last && last.color === color) last.n++;
+    else segs.push({ color, n: 1 });
+  });
+  if (!painted) return "";
+  if (segs.length === 1) return segs[0].color;
+  const stops = [];
+  let acc = 0;
+  segs.forEach((s) => {
+    const from = (acc / days.length) * 100;
+    acc += s.n;
+    const to = (acc / days.length) * 100;
+    const c = s.color || "transparent";
+    stops.push(`${c} ${from.toFixed(2)}%`, `${c} ${to.toFixed(2)}%`);
+  });
+  return `linear-gradient(to right, ${stops.join(", ")})`;
+}
+
+// 状態から1セルを描き直す。どのビューでも同じ処理で済ませられる。
+function refreshCell(itemId, date) {
+  const item = state.items.find((i) => i.id === itemId);
+  const td = findCell(itemId, date);
+  if (!item || !td) return;
+  const days = cellDays(td);
+  if (!days.length) return;
+  const cells = item.cells && typeof item.cells === "object" ? item.cells : {};
+  const labels = item.labels && typeof item.labels === "object" ? item.labels : {};
+  td.style.background = bucketBackground(cells, days) || "";
+  const labelIso = days.find((iso) => labels[iso]);
+  renderCellLabel(td, labelIso ? labels[labelIso] : "");
 }
 
 // A cell's label is the作業名 shown starting at that cell and overflowing to the right.
@@ -455,57 +538,166 @@ function bindHeaderEvents() {
   });
 }
 
+/* ---------------- 表示単位（日別／週間／月間） ----------------
+   セルのデータは日単位のまま。週間・月間ビューは日データを束ねて見せるだけなので、
+   ビューを切り替えても保存されている工程は変わらない。 */
+const VIEW_MODES = ["day", "week", "month"];
+let viewMode = loadViewMode();
+
+function loadViewMode() {
+  try {
+    const v = localStorage.getItem(VIEW_KEY);
+    return VIEW_MODES.includes(v) ? v : "day";
+  } catch (e) { return "day"; }
+}
+
+function setViewMode(mode) {
+  if (!VIEW_MODES.includes(mode) || mode === viewMode) return;
+  viewMode = mode;
+  try { localStorage.setItem(VIEW_KEY, mode); } catch (e) { /* ignore */ }
+  renderViewSwitch();
+  renderGantt();
+}
+
+function renderViewSwitch() {
+  $$(".view-btn").forEach((btn) => {
+    btn.classList.toggle("selected", btn.dataset.view === viewMode);
+  });
+}
+
+function bindViewSwitch() {
+  $$(".view-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setViewMode(btn.dataset.view));
+  });
+  renderViewSwitch();
+}
+
+/* 1列ぶんの情報を作る。days にはその列がまとめている日（工期内のみ）が入る。
+   groupKey が同じ列は、ヘッダの1段目でひとまとめにされる。 */
+function buildColumns() {
+  const days = dateRangeArray(state.meta.startDate, state.meta.endDate);
+  if (viewMode === "week") return weekColumns(days);
+  if (viewMode === "month") return monthColumns(days);
+  return dayColumns(days);
+}
+
+function dayColumns(days) {
+  return days.map((d) => ({
+    key: isoDate(d),
+    days: [isoDate(d)],
+    groupKey: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`,
+    groupLabel: `${d.getFullYear()}年${d.getMonth() + 1}月`,
+    top: String(d.getDate()),
+    bottom: WEEKDAY_JP[d.getDay()],
+    cls: weekendClass(d)
+  }));
+}
+
+// 月曜はじまりの週で束ねる。工期の最初と最後の週は途中から／途中までになる。
+function weekColumns(days) {
+  const cols = [];
+  let cur = null;
+  days.forEach((d) => {
+    const monday = new Date(d);
+    monday.setDate(monday.getDate() - ((d.getDay() + 6) % 7));
+    const key = isoDate(monday);
+    if (!cur || cur.key !== key) {
+      cur = {
+        key,
+        days: [],
+        groupKey: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`,
+        groupLabel: `${d.getFullYear()}年${d.getMonth() + 1}月`,
+        top: String(d.getDate()),
+        bottom: "",
+        cls: "",
+        firstMonth: d.getMonth()
+      };
+      cols.push(cur);
+    }
+    cur.days.push(isoDate(d));
+    cur.lastDate = d;
+  });
+  cols.forEach((c) => {
+    // 月をまたぐ週は、終わりの日付に月を付けて分かるようにする
+    c.bottom = c.lastDate.getMonth() === c.firstMonth
+      ? `〜${c.lastDate.getDate()}`
+      : `〜${c.lastDate.getMonth() + 1}/${c.lastDate.getDate()}`;
+  });
+  return cols;
+}
+
+function monthColumns(days) {
+  const cols = [];
+  let cur = null;
+  days.forEach((d) => {
+    const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
+    if (!cur || cur.key !== key) {
+      cur = {
+        key,
+        days: [],
+        groupKey: String(d.getFullYear()),
+        groupLabel: `${d.getFullYear()}年`,
+        top: `${d.getMonth() + 1}月`,
+        bottom: "",
+        cls: ""
+      };
+      cols.push(cur);
+    }
+    cur.days.push(isoDate(d));
+  });
+  // 工期の初月・末月は途中から始まる／終わるので、実際に含む日数を出す
+  cols.forEach((c) => { c.bottom = `${c.days.length}日間`; });
+  return cols;
+}
+
 /* ---------------- rendering: gantt ---------------- */
-let dayList = [];
+let colList = [];
 
 function renderGantt() {
-  dayList = dateRangeArray(state.meta.startDate, state.meta.endDate);
+  colList = buildColumns();
+  const table = $("#gantt-table");
   const thead = $("#gantt-thead");
   const tbody = $("#gantt-tbody");
+  table.className = "view-" + viewMode;
   thead.innerHTML = "";
   tbody.innerHTML = "";
 
-  const monthRow = document.createElement("tr");
+  const groupRow = document.createElement("tr");
   const labelTh0 = document.createElement("th");
   labelTh0.className = "th-label";
   labelTh0.rowSpan = 3;
   labelTh0.textContent = "項　目";
-  monthRow.appendChild(labelTh0);
+  groupRow.appendChild(labelTh0);
 
   let i = 0;
-  while (i < dayList.length) {
-    const d = dayList[i];
-    const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
+  while (i < colList.length) {
+    const key = colList[i].groupKey;
     let span = 0;
-    while (i + span < dayList.length) {
-      const dd = dayList[i + span];
-      if (`${dd.getFullYear()}-${pad2(dd.getMonth() + 1)}` !== key) break;
-      span++;
-    }
+    while (i + span < colList.length && colList[i + span].groupKey === key) span++;
     const th = document.createElement("th");
     th.className = "th-month";
     th.colSpan = span;
-    th.textContent = `${d.getFullYear()}年${d.getMonth() + 1}月`;
-    monthRow.appendChild(th);
+    th.textContent = colList[i].groupLabel;
+    groupRow.appendChild(th);
     i += span;
   }
-  thead.appendChild(monthRow);
+  thead.appendChild(groupRow);
 
-  const dayRow = document.createElement("tr");
-  const weekdayRow = document.createElement("tr");
-  dayList.forEach((d) => {
+  const topRow = document.createElement("tr");
+  const bottomRow = document.createElement("tr");
+  colList.forEach((col) => {
     const th = document.createElement("th");
-    th.className = "th-day day-col" + weekendClass(d);
-    th.textContent = String(d.getDate());
-    dayRow.appendChild(th);
+    th.className = "th-day day-col" + col.cls;
+    th.textContent = col.top;
+    topRow.appendChild(th);
 
-    const wth = document.createElement("th");
-    wth.className = "th-weekday day-col" + weekendClass(d);
-    wth.textContent = WEEKDAY_JP[d.getDay()];
-    weekdayRow.appendChild(wth);
+    const bth = document.createElement("th");
+    bth.className = "th-weekday day-col" + col.cls;
+    bth.textContent = col.bottom;
+    bottomRow.appendChild(bth);
   });
-  thead.appendChild(dayRow);
-  thead.appendChild(weekdayRow);
+  thead.appendChild(topRow);
+  thead.appendChild(bottomRow);
 
   state.items.forEach((item) => {
     tbody.appendChild(buildItemRow(item));
@@ -665,16 +857,17 @@ function buildItemRow(item) {
   labelTd.appendChild(inner);
   tr.appendChild(labelTd);
 
-  dayList.forEach((d) => {
-    const iso = isoDate(d);
+  colList.forEach((col) => {
     const td = document.createElement("td");
-    td.className = "gantt-cell day-col" + weekendClass(d);
+    td.className = "gantt-cell day-col" + col.cls;
     td.dataset.itemId = item.id;
-    td.dataset.date = iso;
-    const color = cells[iso];
-    if (color) td.style.background = color;
-    const label = labels[iso];
-    if (label) renderCellLabel(td, label);
+    td.dataset.date = col.days[0];
+    td.dataset.colKey = col.key;
+    const bg = bucketBackground(cells, col.days);
+    if (bg) td.style.background = bg;
+    // 週間・月間ビューでは、その期間に付いている作業名を代表して1つ出す
+    const labelIso = col.days.find((iso) => labels[iso]);
+    if (labelIso) renderCellLabel(td, labels[labelIso]);
     tr.appendChild(td);
   });
 
@@ -683,15 +876,24 @@ function buildItemRow(item) {
 
 function applyToolToCell(td) {
   const itemId = td.dataset.itemId;
-  const date = td.dataset.date;
   const item = state.items.find((it) => it.id === itemId);
   if (!item) return;
+  const days = cellDays(td);
+  if (!days.length) return;
+  const cells = item.cells && typeof item.cells === "object" ? item.cells : {};
+  const from = days[0];
+  const to = days[days.length - 1];
+
+  // 日別ビューは従来どおり1日ぶんのop。週間・月間ビューはその期間をまとめて1opにする
+  // （7日ぶん・31日ぶんのopを撒かずに済むので、opログが必要以上に増えない）。
   if (paintMode === "erase") {
-    if (item.cells[date] === undefined) return;
-    dispatchLocal({ type: "erase", itemId, date });
+    if (days.every((iso) => cells[iso] === undefined)) return;
+    if (days.length === 1) dispatchLocal({ type: "erase", itemId, date: from });
+    else dispatchLocal({ type: "eraseRange", itemId, from, to });
   } else {
-    if (item.cells[date] === currentTool.value) return;
-    dispatchLocal({ type: "paint", itemId, date, color: currentTool.value });
+    if (days.every((iso) => cells[iso] === currentTool.value)) return;
+    if (days.length === 1) dispatchLocal({ type: "paint", itemId, date: from, color: currentTool.value });
+    else dispatchLocal({ type: "paintRange", itemId, from, to, color: currentTool.value });
   }
 }
 
@@ -706,9 +908,12 @@ function closeLabelEditor() {
 
 function openLabelEditor(td) {
   const itemId = td.dataset.itemId;
-  const date = td.dataset.date;
   const item = state.items.find((i) => i.id === itemId);
   if (!item) return;
+  const days = cellDays(td);
+  if (!days.length) return;
+  // 週間・月間ビューでは、その期間に既にある作業名を編集する（無ければ期間の先頭に付ける）
+  const date = days.find((iso) => (item.labels || {})[iso]) || days[0];
   closeLabelEditor();
 
   const rect = td.getBoundingClientRect();
@@ -1037,6 +1242,7 @@ function init() {
   bindHeaderEvents();
   bindGanttPainting();
   bindToolbar();
+  bindViewSwitch();
   renderAll();
   saveLocal();
 
