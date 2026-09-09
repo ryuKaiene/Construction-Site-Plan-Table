@@ -952,9 +952,11 @@ body.row-drag-active {
     border: 0.2mm solid #9aa0a6;
     padding: 0;
     text-align: center;
-    overflow: hidden;
     line-height: 1;
   }
+  /* 見出しと項目欄ははみ出させない。日付セルだけは作業名がはみ出せるようにする
+     （ここを hidden にすると、数mmしかないセル幅で作業名が切れてしまう） */
+  .print-table th { overflow: hidden; }
   .print-table .p-th { background: #eceef1; font-weight: 600; }
   .print-table .p-month { white-space: nowrap; }
   .print-table .p-label {
@@ -971,7 +973,8 @@ body.row-drag-active {
   .print-table .td-sat { background: var(--sat); }
   .print-table .td-sun { background: var(--sun); }
 
-  /* 作業名はセル幅に収まらないので、右へはみ出して表示する（紙の端で切れる） */
+  /* 作業名はセル幅（数mm）に収まらないので、はみ出して表示する。
+     紙の端で切れないよう、向きは script.js 側で決めてクラスを付けている。 */
   .p-bar-label {
     position: absolute;
     left: 0.3mm;
@@ -981,6 +984,16 @@ body.row-drag-active {
     background: rgba(255, 255, 255, 0.88);
     padding: 0 0.4mm;
     z-index: 2;
+  }
+  /* 右に余白が無い時は左向きに伸ばす */
+  .p-bar-label-left {
+    left: auto;
+    right: 0.3mm;
+  }
+  /* どちらにも収まらない時だけ「…」で締める */
+  .p-bar-label-clip {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .print-progress-table {
