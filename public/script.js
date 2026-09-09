@@ -1439,6 +1439,45 @@ function buildPrintHead(cols, pageNo, pageTotal) {
   return head;
 }
 
+/* 作業名は1日ぶんのセル幅（数mm）に収まらないので、はみ出して表示する。
+   ただし紙の端で切れると読めなくなるため、右に入らなければ左向きに伸ばし、
+   どちらにも入らない時だけ広い方に寄せて「…」で締める。
+   印刷CSSは画面では効かず実測できないので、幅は同じフォント指定で文字送りを計算して見積もる。 */
+const PRINT_FONT = '"Yu Gothic", "Meiryo", "Hiragino Sans", "Segoe UI", sans-serif';
+const PX_PER_MM = 96 / 25.4;
+let printMeasureCtx = null;
+
+function measureTextMm(text, fontPt) {
+  if (!printMeasureCtx) printMeasureCtx = document.createElement("canvas").getContext("2d");
+  printMeasureCtx.font = fontPt + "pt " + PRINT_FONT;
+  return printMeasureCtx.measureText(text).width / PX_PER_MM;
+}
+
+function buildPrintLabel(text, colIndex, colCount, colW, fontPt) {
+  const span = document.createElement("span");
+  span.className = "p-bar-label";
+  span.textContent = text;
+
+  const need = measureTextMm(text, fontPt) + 1.2; // 左右の余白ぶん
+  const roomRight = (colCount - colIndex) * colW;  // このセルの左端から紙の右端まで
+  // 左は日付欄の左端まで。項目（工種名）欄まで伸ばすと工種名が隠れてしまうので含めない。
+  const roomLeft = (colIndex + 1) * colW;
+
+  if (need <= roomRight) return span; // 右へはみ出せば収まる（通常）
+
+  if (need <= roomLeft) {
+    span.classList.add("p-bar-label-left"); // 左向きに伸ばす
+    return span;
+  }
+
+  // どちら向きでも紙に収まらない：広い方へ寄せ、末尾を「…」にして切れたと分かるようにする
+  const toLeft = roomLeft > roomRight;
+  if (toLeft) span.classList.add("p-bar-label-left");
+  span.classList.add("p-bar-label-clip");
+  span.style.maxWidth = Math.max(6, (toLeft ? roomLeft : roomRight) - 1.2).toFixed(2) + "mm";
+  return span;
+}
+
 function buildPrintPage(rows, cols, colW, rowH, pageNo, pageTotal) {
   const P = PRINT_MM;
   const page = document.createElement("section");
@@ -1447,7 +1486,8 @@ function buildPrintPage(rows, cols, colW, rowH, pageNo, pageTotal) {
 
   const table = document.createElement("table");
   table.className = "print-table";
-  table.style.fontSize = Math.max(5, Math.min(8, rowH * 1.15)).toFixed(2) + "pt";
+  const fontPt = Math.max(5, Math.min(8, rowH * 1.15));
+  table.style.fontSize = fontPt.toFixed(2) + "pt";
 
   const colgroup = document.createElement("colgroup");
   const firstCol = document.createElement("col");
@@ -1516,18 +1556,13 @@ function buildPrintPage(rows, cols, colW, rowH, pageNo, pageTotal) {
     nameTd.textContent = (row.collapsed ? "▶ " : "") + (item.name || "");
     tr.appendChild(nameTd);
 
-    cols.forEach((col) => {
+    cols.forEach((col, ci) => {
       const td = document.createElement("td");
       td.className = "p-cell" + col.cls;
       const bg = bucketBackground(cells, col.days);
       if (bg) td.style.background = bg;
       const iso = col.days.find((d) => labels[d]);
-      if (iso) {
-        const span = document.createElement("span");
-        span.className = "p-bar-label";
-        span.textContent = labels[iso];
-        td.appendChild(span);
-      }
+      if (iso) td.appendChild(buildPrintLabel(labels[iso], ci, cols.length, colW, fontPt));
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
