@@ -153,28 +153,36 @@ const S_CELL_SAT = 10;
 const S_CELL_SUN = 11;
 const S_LABEL = 12;       // 作業名テキスト（枠線・左寄せ・小さめ）
 const S_PROGRESS = 13;    // 出来高率の数値
-const FIXED_STYLE_COUNT = 14;
+const S_ACTUAL = 14;      // 実施のバー（赤）
+const S_ACTUAL_NAME = 15; // 実施の行の見出し（小さめ・右寄せ）
+const S_ACTUAL_SAT = 16;  // 実施の行の空セル（土）
+const S_ACTUAL_SUN = 17;  // 実施の行の空セル（日）
+const FIXED_STYLE_COUNT = 18;
 
 const SAT_ARGB = "FFCFE8FF";
 const SUN_ARGB = "FFFFDCB0";
 const HEAD_ARGB = "FFF0F1F3";
+const ACTUAL_ARGB = "FFDC2626";
 
 function buildStyles(barColors) {
-  // fills: 0,1 は予約。2=土, 3=日, 4=ヘッダー, 5.. = 工程バー色
+  // fills: 0,1 は予約。2=土, 3=日, 4=ヘッダー, 5=実施（赤）, 6.. = 計画のバー色
   const fills = [
     '<fill><patternFill patternType="none"/></fill>',
     '<fill><patternFill patternType="gray125"/></fill>',
     solidFill(SAT_ARGB),
     solidFill(SUN_ARGB),
-    solidFill(HEAD_ARGB)
+    solidFill(HEAD_ARGB),
+    solidFill(ACTUAL_ARGB)
   ];
+  const BAR_FILL_BASE = fills.length;
   barColors.forEach((argb) => fills.push(solidFill(argb)));
 
   const fonts = [
     '<font><sz val="10"/><color rgb="FF22242A"/><name val="Meiryo"/></font>',
     '<font><b/><sz val="10"/><color rgb="FF22242A"/><name val="Meiryo"/></font>',
     '<font><b/><sz val="16"/><color rgb="FF22242A"/><name val="Meiryo"/></font>',
-    '<font><sz val="8"/><color rgb="FF22242A"/><name val="Meiryo"/></font>'
+    '<font><sz val="8"/><color rgb="FF22242A"/><name val="Meiryo"/></font>',
+    '<font><sz val="7"/><color rgb="FFB91C1C"/><name val="Meiryo"/></font>'
   ];
 
   const borders = [
@@ -202,7 +210,11 @@ function buildStyles(barColors) {
   xf[S_CELL_SUN]    = x(0, 3, 1, 'center');
   xf[S_LABEL]       = x(3, 0, 1, 'left');
   xf[S_PROGRESS]    = x(0, 0, 1, 'center');
-  barColors.forEach((_, i) => { xf[FIXED_STYLE_COUNT + i] = x(0, 5 + i, 1, 'center'); });
+  xf[S_ACTUAL]      = x(0, 5, 1, 'center');
+  xf[S_ACTUAL_NAME] = x(4, 0, 1, 'right');
+  xf[S_ACTUAL_SAT]  = x(0, 2, 1, 'center');
+  xf[S_ACTUAL_SUN]  = x(0, 3, 1, 'center');
+  barColors.forEach((_, i) => { xf[FIXED_STYLE_COUNT + i] = x(0, BAR_FILL_BASE + i, 1, 'center'); });
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
@@ -303,10 +315,16 @@ function buildSheet(state, barStyleOf, days) {
   const freezeRow = wdRowNum + 1;
 
   // --- 工種行 ---
+  // 実施が1日でも入力されている工程表は、各工種を「計画の行＋実施の行」の2段で出す。
+  // 実施を使っていない工程表は、これまでどおり1工種1行。
+  const hasActual = (state.items || []).some((it) => it.actual && Object.keys(it.actual).some((k) => it.actual[k]));
   for (const item of (state.items || [])) {
     const rn = ++r;
+    const hasPlanCells = item.cells && Object.keys(item.cells).length > 0;
+    const hasActualCells = item.actual && Object.keys(item.actual).some((k) => item.actual[k]);
+    const tag = item.done ? "【完了】" : (hasPlanCells && !hasActualCells ? "【未着手】" : "");
     const indent = "　".repeat(item.level || 0);
-    const cells = [cell(1, rn, indent + (item.name || ""), item.bold ? S_ITEM_BOLD : S_ITEM, "s")];
+    const cells = [cell(1, rn, indent + (item.name || "") + tag, item.bold ? S_ITEM_BOLD : S_ITEM, "s")];
     days.forEach((d, idx) => {
       const iso = isoDate(d);
       const color = item.cells ? item.cells[iso] : null;
@@ -318,6 +336,19 @@ function buildSheet(state, barStyleOf, days) {
       cells.push(cell(2 + idx, rn, label || null, style, label ? "s" : undefined));
     });
     rows.push(row(rn, cells));
+
+    if (hasActual) {
+      const an = ++r;
+      const actual = item.actual || {};
+      const acells = [cell(1, an, "実施", S_ACTUAL_NAME, "s")];
+      days.forEach((d, idx) => {
+        const style = actual[isoDate(d)]
+          ? S_ACTUAL
+          : weekStyle(d, S_CELL, S_ACTUAL_SAT, S_ACTUAL_SUN);
+        acells.push(cell(2 + idx, an, null, style));
+      });
+      rows.push(row(an, acells, 9));
+    }
   }
 
   // --- 空行 + 出来高率 ---
@@ -376,7 +407,10 @@ ${mergeXml}
     if (d.getDay() === 0) return sun;
     return normal;
   }
-  function row(n, cs) { return `<row r="${n}">${cs.join("")}</row>`; }
+  function row(n, cs, height) {
+    const ht = height ? ` ht="${height}" customHeight="1"` : "";
+    return `<row r="${n}"${ht}>${cs.join("")}</row>`;
+  }
   function cell(c, rn, value, style, type) {
     const ref = `${colName(c)}${rn}`;
     if (value === null || value === undefined || value === "") {

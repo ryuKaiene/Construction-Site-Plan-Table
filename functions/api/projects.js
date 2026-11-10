@@ -15,7 +15,7 @@ function initialState(meta) {
   return {
     meta,
     items: DEFAULT_ITEM_NAMES.map((name) => ({
-      id: uid(), name, bold: true, level: 0, cells: {}, labels: {}
+      id: uid(), name, bold: true, level: 0, cells: {}, labels: {}, actual: {}
     })),
     progress: { plan: {}, actual: {} }
   };

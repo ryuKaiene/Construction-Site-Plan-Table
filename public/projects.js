@@ -3,115 +3,166 @@
 
 const $ = (s) => document.querySelector(s);
 
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined && text !== null) e.textContent = text;
+  return e;
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+function icon(name, cls) {
+  const s = document.createElementNS(SVG_NS, "svg");
+  s.setAttribute("class", "icon" + (cls ? " " + cls : ""));
+  s.setAttribute("aria-hidden", "true");
+  const u = document.createElementNS(SVG_NS, "use");
+  u.setAttribute("href", "#i-" + name);
+  s.appendChild(u);
+  return s;
+}
+
 function pad2(n) { return String(n).padStart(2, "0"); }
 function todayISO() {
   const d = new Date();
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
+function parseISO(iso) {
+  const [y, m, d] = String(iso || "").split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d, 12, 0, 0);
+}
+
 function formatDate(iso) {
-  if (!iso) return "—";
-  const [y, m, d] = String(iso).split("-");
-  if (!y || !m || !d) return iso;
-  return `${y}/${m}/${d}`;
+  const d = parseISO(iso);
+  if (!d) return "—";
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 function formatTimestamp(ms) {
   if (!ms) return "";
   const d = new Date(ms);
-  return `${d.getFullYear()}/${pad2(d.getMonth() + 1)}/${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
+function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
+
 function setStatus(msg, kind) {
-  const el = $("#list-status");
-  el.textContent = msg || "";
-  el.className = "list-status" + (kind ? " status-" + kind : "");
-  el.hidden = !msg;
+  const box = $("#list-status");
+  box.textContent = msg || "";
+  box.className = "list-status" + (kind ? " status-" + kind : "");
+  box.hidden = !msg;
+}
+
+/* 工期のどのあたりにいるか（着工前／施工中／工期終了）。
+   あくまで日付の経過であって、出来高ではない。 */
+function periodStatus(meta) {
+  const s = parseISO(meta.startDate);
+  const e = parseISO(meta.endDate);
+  const t = parseISO(todayISO());
+  if (!s || !e || e < s) return null;
+  const total = daysBetween(s, e) + 1;
+  if (t < s) return { kind: "before", label: `着工前（あと${daysBetween(t, s)}日）`, pct: 0 };
+  if (t > e) return { kind: "done", label: "工期終了", pct: 100 };
+  const passed = daysBetween(s, t) + 1;
+  return {
+    kind: "running",
+    label: `施工中（残り${daysBetween(t, e)}日）`,
+    pct: Math.round((passed / total) * 100)
+  };
 }
 
 /* ---------------- 一覧の読み込み ---------------- */
+let allProjects = [];
+let loadFailed = false;
+
 async function loadProjects() {
   setStatus("読み込み中…", "info");
   try {
     const res = await fetch("/api/projects");
     if (!res.ok) throw new Error("status " + res.status);
     const data = await res.json();
-    renderProjects(data.projects || []);
+    allProjects = data.projects || [];
+    loadFailed = false;
     setStatus("", null);
   } catch (e) {
-    renderProjects([]);
+    allProjects = [];
+    loadFailed = true;
     setStatus(
-      "工事一覧を読み込めませんでした。サーバー（Cloudflare Pages Functions と D1）の設定が未完了の可能性があります。",
+      "工事一覧を読み込めませんでした。通信状況を確認して、ページを開き直してください。",
       "error"
     );
   }
+  renderProjects();
 }
 
-function renderProjects(projects) {
+function renderProjects() {
   const list = $("#project-list");
-  list.innerHTML = "";
-  $("#empty-state").hidden = projects.length > 0;
+  list.textContent = "";
+
+  // 件数が増えてきたら絞り込み欄を出す
+  $("#list-tools").hidden = allProjects.length < 6;
+  const q = ($("#list-search").value || "").trim().toLowerCase();
+  const projects = !q ? allProjects : allProjects.filter((p) => {
+    const m = p.meta || {};
+    return [p.name, m.orderer, m.location, m.contractor].some((v) => String(v || "").toLowerCase().includes(q));
+  });
+
+  const empty = $("#empty-state");
+  empty.hidden = projects.length > 0 || loadFailed;
+  if (!projects.length && allProjects.length) {
+    $("#empty-title").textContent = "該当する工事がありません";
+    $("#empty-desc").textContent = "絞り込みの文字を変えてみてください。";
+    $("#btn-new-project-empty").hidden = true;
+  } else {
+    $("#empty-title").textContent = "まだ工事が登録されていません";
+    $("#empty-desc").textContent = "最初の工事を登録すると、工程表を作れるようになります。";
+    $("#btn-new-project-empty").hidden = false;
+  }
 
   projects.forEach((p) => {
     const meta = p.meta || {};
-    const card = document.createElement("div");
-    card.className = "project-card";
+    const href = `schedule.html?project=${encodeURIComponent(p.id)}`;
+    const card = el("article", "project-card");
 
-    const main = document.createElement("a");
-    main.className = "project-main";
-    main.href = `schedule.html?project=${encodeURIComponent(p.id)}`;
+    const link = el("a", "project-link");
+    link.href = href;
+    link.setAttribute("aria-label", `${p.name || "(名称未設定)"} の工程表を開く`);
+    card.appendChild(link);
 
-    const name = document.createElement("div");
-    name.className = "project-name";
-    name.textContent = p.name || "(名称未設定)";
-    main.appendChild(name);
+    const top = el("div", "project-top");
+    top.appendChild(el("div", "project-name", p.name || "(名称未設定)"));
+    const del = el("button", "icon-btn project-del");
+    del.type = "button";
+    del.title = "この工事を削除";
+    del.setAttribute("aria-label", "この工事を削除");
+    del.appendChild(icon("trash", "icon-sm"));
+    del.addEventListener("click", () => deleteProject(p));
+    top.appendChild(del);
+    card.appendChild(top);
 
-    const rows = [
-      ["発注者", meta.orderer],
-      ["工事場所", meta.location],
-      ["施工者", meta.contractor]
-    ].filter(([, v]) => v);
+    const info = el("div", "project-meta");
+    [["発注者", meta.orderer], ["場所", meta.location], ["施工者", meta.contractor]]
+      .filter(([, v]) => v)
+      .forEach(([label, value]) => info.appendChild(el("span", "", `${label}：${value}`)));
+    info.appendChild(el("span", "", `工期：${formatDate(meta.startDate)} 〜 ${formatDate(meta.endDate)}`));
+    card.appendChild(info);
 
-    if (rows.length) {
-      const info = document.createElement("div");
-      info.className = "project-info";
-      rows.forEach(([label, value]) => {
-        const span = document.createElement("span");
-        span.className = "project-info-item";
-        span.textContent = `${label}：${value}`;
-        info.appendChild(span);
-      });
-      main.appendChild(info);
+    const st = periodStatus(meta);
+    if (st) {
+      const bar = el("div", "project-bar");
+      bar.title = `工期の経過 ${st.pct}%`;
+      const fill = el("i");
+      fill.style.width = st.pct + "%";
+      bar.appendChild(fill);
+      card.appendChild(bar);
     }
 
-    const period = document.createElement("div");
-    period.className = "project-period";
-    period.textContent = `工期：${formatDate(meta.startDate)} ～ ${formatDate(meta.endDate)}`;
-    main.appendChild(period);
+    const foot = el("div", "project-foot");
+    foot.appendChild(st ? el("span", "chip status-chip " + st.kind, st.label) : el("span"));
+    foot.appendChild(el("span", "", p.updatedAt ? `更新 ${formatTimestamp(p.updatedAt)}` : ""));
+    card.appendChild(foot);
 
-    const updated = document.createElement("div");
-    updated.className = "project-updated";
-    updated.textContent = `最終更新：${formatTimestamp(p.updatedAt)}`;
-    main.appendChild(updated);
-
-    card.appendChild(main);
-
-    const actions = document.createElement("div");
-    actions.className = "project-actions";
-
-    const openBtn = document.createElement("a");
-    openBtn.className = "btn btn-accent";
-    openBtn.href = main.href;
-    openBtn.textContent = "工程表を開く";
-    actions.appendChild(openBtn);
-
-    const delBtn = document.createElement("button");
-    delBtn.className = "btn btn-danger";
-    delBtn.textContent = "削除";
-    delBtn.addEventListener("click", () => deleteProject(p));
-    actions.appendChild(delBtn);
-
-    card.appendChild(actions);
     list.appendChild(card);
   });
 }
@@ -143,9 +194,10 @@ function closeModal() {
 }
 
 function showFormError(msg) {
-  const el = $("#form-error");
-  el.textContent = msg;
-  el.hidden = false;
+  const box = $("#form-error");
+  box.textContent = msg;
+  box.hidden = false;
+  if (box.scrollIntoView) box.scrollIntoView({ block: "nearest" });
 }
 
 async function submitForm(e) {
@@ -192,10 +244,13 @@ async function submitForm(e) {
 }
 
 /* ---------------- init ---------------- */
-$("#btn-new-project").addEventListener("click", openModal);
+["#btn-new-project", "#btn-new-project-fab", "#btn-new-project-empty"].forEach((sel) => {
+  $(sel).addEventListener("click", openModal);
+});
 $("#btn-modal-close").addEventListener("click", closeModal);
 $("#btn-modal-cancel").addEventListener("click", closeModal);
 $("#new-project-form").addEventListener("submit", submitForm);
+$("#list-search").addEventListener("input", renderProjects);
 $("#modal-backdrop").addEventListener("click", (e) => {
   if (e.target === $("#modal-backdrop")) closeModal();
 });
