@@ -1,888 +1,1078 @@
+/* =========================================================
+   工事工程表  スタイル
+   - 画面はスマホを基準に組み、広い画面で広げる（モバイルファースト）
+   - 計画＝上段（既定は青）、実施＝下段（赤）
+   ========================================================= */
 :root {
-  --border: #c9ccd1;
-  --border-strong: #8a8f98;
-  --bg: #f5f6f8;
-  --panel: #ffffff;
-  --text: #22242a;
-  --accent: #2f6fed;
-  --accent-dark: #1e4fb8;
-  --danger: #d64545;
-  --ok: #1f9d55;
-  --sat: #cfe8ff;
-  --sun: #ffdcb0;
-  --blank: #ececec;
-  --cell-w: 20px;
-  --row-h: 26px;
-  --label-w: 250px;
+  --bg: #f3f5f9;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --text: #0f172a;
+  --text-2: #475569;
+  --text-3: #94a3b8;
+  --line: #e5e9f0;
+  --line-2: #cbd5e1;
+
+  --primary: #2563eb;
+  --primary-600: #1d4ed8;
+  --primary-50: #eff6ff;
+  --plan: #2563eb;
+  --actual: #dc2626;
+  --actual-50: #fef2f2;
+  --edit: #d97706;
+  --edit-50: #fffbeb;
+  --ok: #16a34a;
+  --danger: #dc2626;
+  --today: #f59e0b;
+
+  --sat: #eaf2ff;
+  --sun: #fff1e8;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-2: 0 8px 24px rgba(15, 23, 42, 0.14), 0 2px 6px rgba(15, 23, 42, 0.08);
+
+  --label-w: 132px;
+  --row-h: 42px;
+  --col-w: 28px;
+  --tabbar-h: 58px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
 }
 
 * { box-sizing: border-box; }
 
-html, body {
+html, body { height: 100%; }
+
+body {
   margin: 0;
-  padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: "Yu Gothic", "Meiryo", "Hiragino Sans", "Segoe UI", sans-serif;
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, input, select, textarea { font-family: inherit; color: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+
+.icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.icon-fill { fill: currentColor; stroke: none; }
+.icon-sm { width: 16px; height: 16px; }
+
+/* ---------- ボタン ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.btn:hover { background: var(--surface-2); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.45; cursor: default; transform: none; }
+.btn:focus-visible, .icon-btn:focus-visible, .seg-btn:focus-visible, .tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-600); }
+.btn-danger { color: var(--danger); border-color: #fecaca; background: #fff; }
+.btn-danger:hover { background: var(--actual-50); }
+.btn-ghost { border-color: transparent; background: transparent; }
+.btn-ghost:hover { background: rgba(15, 23, 42, 0.06); }
+.btn-sm { min-height: 34px; padding: 0 10px; font-size: 13px; border-radius: 8px; }
+.btn-block { width: 100%; }
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-2);
+  text-decoration: none;
+}
+.icon-btn:hover { background: rgba(15, 23, 42, 0.06); color: var(--text); }
+.icon-btn:disabled { opacity: 0.35; cursor: default; background: transparent; }
+
+/* 切り替えボタン（セグメント） */
+.seg {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: #e9edf3;
+  flex: none;
+}
+.seg-btn {
+  min-height: 32px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
   font-size: 13px;
-}
-
-.app {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-/* ---------- Toolbar ---------- */
-.toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  display: flex;
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 16px;
-  background: #1f2430;
-  color: #fff;
-  flex-wrap: wrap;
+  gap: 6px;
+}
+.seg-btn.selected { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #e9edf3;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); flex: none; }
+
+/* ---------- 入力欄 ---------- */
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field-label { font-size: 12px; font-weight: 600; color: var(--text-2); }
+.input, .select {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 16px; /* 16px未満だとiPhoneで入力時に画面が勝手に拡大される */
   min-width: 0;
 }
-
-.toolbar-title {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 46vw;
+.input:focus, .select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
 }
-
-.toolbar-sub {
-  font-size: 12px;
-  color: #aab0bd;
-  white-space: nowrap;
-}
-
-.btn-back {
-  background: #3a4256;
-  text-decoration: none;
-  display: inline-block;
-}
-
-.btn-excel {
-  background: #1d6f42;
-  border-color: #14522f;
-}
-.btn-excel:hover { background: #14522f; }
-
-.toolbar-group {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.btn {
-  border: 1px solid #444a58;
-  background: #2b3140;
-  color: #fff;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 12.5px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.btn:hover { background: #3a4256; }
-
-.btn:disabled, .btn:disabled:hover {
-  opacity: 0.4;
-  cursor: default;
-  background: #2b3140;
-}
-
-.btn-accent {
-  background: var(--accent);
-  border-color: var(--accent-dark);
-}
-.btn-accent:hover { background: var(--accent-dark); }
-
-.btn-danger {
-  background: #4a2323;
-  border-color: var(--danger);
-}
-.btn-danger:hover { background: var(--danger); }
-
-.palette-bar {
-  position: sticky;
-  top: 42px;
-  z-index: 49;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 16px;
-  background: #eef0f4;
-  border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-}
-
-.palette-label { font-size: 12.5px; color: #555; }
-
-.palette {
-  display: flex;
-  gap: 4px;
-}
-
-.swatch {
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  border: 2px solid transparent;
-  cursor: pointer;
-  padding: 0;
-}
-.swatch.selected {
-  border-color: #222;
-  box-shadow: 0 0 0 2px #fff inset;
-}
-
-.tool-btn.selected {
-  outline: 2px solid #222;
-}
-
-.custom-color {
-  width: 30px;
-  height: 26px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0;
-  cursor: pointer;
-}
-
-/* ---------- 編集モード ---------- */
-.btn-edit-mode {
-  background: var(--accent);
-  border-color: var(--accent-dark);
-  font-weight: 700;
-}
-.btn-edit-mode:hover { background: var(--accent-dark); }
-
-body.edit-mode .btn-edit-mode {
-  background: #b8621b;
-  border-color: #8c4a13;
-}
-body.edit-mode .btn-edit-mode:hover { background: #8c4a13; }
-
-.edit-status {
-  font-size: 12px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 12px;
-  white-space: nowrap;
-  color: #555;
-  background: #e3e5ea;
-}
-.edit-status-on {
-  color: #8c4a13;
-  background: #ffe0bd;
-}
-
-/* 編集中は操作バーの色を変えて、書き換えられる状態だとひと目で分かるようにする */
-body.edit-mode .palette-bar {
-  background: #fff3e2;
-  border-bottom-color: #e0a04a;
-}
-
-/* 閲覧のみの時は、塗れる見た目・つかめる見た目を出さない */
-body:not(.edit-mode) .gantt-cell { cursor: default; }
-body:not(.edit-mode) .gantt-cell:hover { outline: none; }
-body:not(.edit-mode) .row-drag { visibility: hidden; }
-body:not(.edit-mode) .palette-label,
-body:not(.edit-mode) #palette,
-body:not(.edit-mode) #tool-erase,
-body:not(.edit-mode) #tool-label,
-body:not(.edit-mode) #custom-color {
-  opacity: 0.4;
-  pointer-events: none;
-}
-
-/* 書き換えを止めている間も、中身は今までどおり読めるようにしておく */
-.sh-input:disabled,
-.item-name-input[readonly],
-.sh-input[readonly],
-#progress-table input:disabled {
+.input:disabled, .input[readonly] {
+  background: var(--surface-2);
   color: var(--text);
   -webkit-text-fill-color: var(--text);
   opacity: 1;
-  cursor: default;
 }
-.sh-input:disabled { background: transparent; }
-#progress-table input:disabled { background: #f7f8fa; }
-.row-btn:disabled { opacity: 0.25; cursor: default; }
-.row-btn:disabled:hover { color: #888; }
-
-.conn-status {
-  font-size: 12px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 12px;
-  white-space: nowrap;
-}
-.conn-online {
-  color: var(--ok);
-  background: #e4f7ec;
-}
-.conn-offline {
-  color: #8a6d1c;
-  background: #fff4d6;
-}
-.conn-connecting {
-  color: #555;
-  background: #eee;
-}
-
-.share-status {
-  margin-left: auto;
-  font-size: 12px;
-  color: var(--accent-dark);
-  font-weight: 600;
-}
-
-/* ---------- Main / Header sheet ---------- */
-main {
-  flex: 1;
-  padding: 12px 16px 32px;
-}
-
-.sheet-header {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-bottom: 14px;
-}
-
-.sh-title-row {
-  text-align: center;
-  margin-bottom: 10px;
-}
-
-.sh-maintitle {
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0.4em;
-}
-
-.sh-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px 14px;
-}
-
-.sh-field {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 8px;
-  background: #fafbfc;
-}
-
-.sh-wide { grid-column: span 2; }
-
-.sh-period { grid-column: span 2; }
-
-.sh-label {
-  font-size: 11.5px;
-  color: #555;
-  white-space: nowrap;
-  flex: 0 0 auto;
-}
-
-.sh-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  font-size: 13px;
-  padding: 3px 4px;
-  min-width: 0;
-  color: var(--text);
-}
-.sh-input:focus { outline: 1px solid var(--accent); border-radius: 3px; }
-
-.sh-date { flex: 1 1 auto; }
-.sh-tilde { flex: 0 0 auto; color: #777; }
-
-/* ---------- Gantt ---------- */
-.gantt-wrap {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px;
-  margin-bottom: 18px;
-  overflow: hidden;
-}
-
-.gantt-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 2px 4px 8px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-}
-
-.gantt-toolbar-title {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.gantt-toolbar-hint {
-  font-size: 11px;
-  color: #777;
-}
-
-/* 表示単位の切り替え（日別／週間／月間） */
-.view-switch {
-  display: flex;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-  flex: 0 0 auto;
-}
-
-.view-btn {
-  border: none;
-  border-left: 1px solid var(--border);
-  background: #fff;
-  color: #444;
-  font-family: inherit;
-  font-size: 12px;
-  padding: 4px 12px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.view-btn:first-child { border-left: none; }
-.view-btn:hover { background: #eef2fb; }
-.view-btn.selected {
-  background: var(--accent);
-  color: #fff;
-  font-weight: 700;
-}
-
-/* 表示期間の絞り込み */
-.gantt-toolbar-sub {
-  padding-top: 0;
-}
-
-.range-select, .range-input {
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  background: #fff;
-  color: var(--text);
-  font-family: inherit;
-  font-size: 12px;
-  padding: 3px 6px;
-}
-.range-select:focus, .range-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(47, 111, 237, 0.15);
-}
-
-.range-tilde { color: #777; }
-
-.range-btn {
-  padding: 4px 10px;
-  font-size: 12px;
-}
-.range-btn:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-.range-btn:disabled:hover { background: #2b3140; }
-
-/* 絞り込み中は、全期間を見ているわけではないことがひと目で分かるようにする */
-.range-caption {
-  margin: 0 4px 8px;
-  padding: 5px 10px;
-  border-left: 4px solid var(--accent);
-  border-radius: 0 4px 4px 0;
-  background: #eaf1ff;
-  color: var(--accent-dark);
-  font-size: 12.5px;
-  font-weight: 700;
-}
-.range-caption[hidden] { display: none; }
-
-.range-caption-warn {
-  border-left-color: var(--danger);
-  background: #fdecec;
-  color: #a12b2b;
-}
-
-.gantt-wrap.range-active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(47, 111, 237, 0.18);
-}
-
-.btn-add-item {
-  padding: 4px 12px;
-  font-size: 12.5px;
-}
-
-.gantt-footer {
-  padding: 8px 4px 2px;
-  border-top: 1px solid var(--border);
-  margin-top: 8px;
-}
-
-.gantt-scroll {
-  overflow-x: auto;
-  overflow-y: hidden;
-  max-width: 100%;
-}
-
-#gantt-table {
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-/* 週間・月間ビューは1列が複数日ぶんなので、列幅を広げて日付が読めるようにする */
-#gantt-table.view-week { --cell-w: 46px; }
-#gantt-table.view-month { --cell-w: 66px; }
-
-#gantt-table th, #gantt-table td {
-  border: 1px solid var(--border);
-  padding: 0;
-  text-align: center;
-  font-size: 10.5px;
-  height: var(--row-h);
-}
-
-.th-label, .td-label {
-  position: sticky;
-  left: 0;
-  z-index: 5;
-  width: var(--label-w);
-  min-width: var(--label-w);
-  max-width: var(--label-w);
-  background: #f2f3f5;
-  text-align: left;
-  padding: 2px 6px !important;
-}
-
-.td-label { z-index: 4; }
-
-.item-row-inner {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.item-name-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  font-size: 12px;
-  min-width: 0;
-  padding: 2px 2px;
-}
-.item-name-input:focus { outline: 1px solid var(--accent); }
-
-.item-name-input.bold { font-weight: 700; }
-
-.row-btn {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 11px;
-  color: #888;
-  padding: 0 2px;
-  line-height: 1;
-}
-.row-btn:hover { color: var(--danger); }
-
-/* 階層の折りたたみ（閲覧のみモードでも押せる） */
-.row-twisty {
-  flex: 0 0 auto;
-  width: 14px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 9px;
-  color: #667;
-  padding: 0;
-  line-height: 1;
-}
-.row-twisty:hover { color: var(--accent); }
-.row-twisty-empty { cursor: default; visibility: hidden; }
-
-/* 折りたたみ中の親は、中に隠れた行があることが分かるようにする */
-tr.row-collapsed .item-name-input { font-style: italic; }
-tr.row-collapsed .td-label {
-  box-shadow: inset 0 -2px 0 -1px var(--accent);
-}
-
-/* 行のドラッグ並べ替え */
-.row-drag {
-  flex: 0 0 auto;
-  cursor: grab;
-  color: #b0b4bb;
-  font-size: 13px;
-  line-height: 1;
-  padding: 0 1px;
-  user-select: none;
-  touch-action: none;
-}
-.row-drag:hover { color: var(--accent); }
-.row-drag:active { cursor: grabbing; }
-
-tr.row-dragging {
-  opacity: 0.6;
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-tr.row-dragging .td-label { background: #dbe8ff; }
-
-body.row-drag-active {
-  cursor: grabbing;
-  user-select: none;
-}
-
-.th-month, .th-day, .th-weekday {
-  background: #f7f8fa;
-  font-weight: 600;
-  color: #444;
-}
-
-.th-month { white-space: nowrap; }
-
-.day-col {
-  width: var(--cell-w);
-  min-width: var(--cell-w);
-  max-width: var(--cell-w);
-}
-
-.td-sat { background: var(--sat); }
-.td-sun { background: var(--sun); }
-.td-blank { background: var(--blank); }
-
-.gantt-cell {
-  cursor: pointer;
-  user-select: none;
-  position: relative;
-  overflow: visible;
-}
-.gantt-cell:hover { outline: 1px solid var(--accent); outline-offset: -1px; }
-
-/* ---------- 作業名ラベル（バー上に重ねて右へはみ出して表示） ---------- */
-.bar-label {
-  position: absolute;
-  left: 1px;
-  top: 50%;
-  transform: translateY(-50%);
-  white-space: nowrap;
-  font-size: 10px;
-  line-height: 1.4;
-  color: #1a1c22;
-  pointer-events: none;
-  z-index: 3;
-  /* 濃い工程バーの上に重なっても読めるように、薄い白地を敷く */
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 2px;
-  padding: 0 3px;
-}
-
-.label-editor {
-  position: absolute;
-  z-index: 200;
-  width: 260px;
-  padding: 4px 6px;
-  font-size: 12px;
-  border: 2px solid var(--accent);
-  border-radius: 4px;
-  background: #fff;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
-}
-
-/* ---------- 階層（大工種 → 中工種 → 作業） ---------- */
-.td-label.lv0 { background: #e8eaee; }
-.td-label.lv1 { background: #f2f3f5; }
-.td-label.lv2 { background: #fafbfc; }
-
-/* ---------- Progress / S-curve ---------- */
-.progress-wrap {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 16px;
-}
-
-.section-title {
-  font-size: 14px;
-  margin: 0 0 10px;
-}
-
-.progress-table-scroll {
-  overflow-x: auto;
-  margin-bottom: 12px;
-}
-
-#progress-table {
-  border-collapse: collapse;
-}
-
-#progress-table th, #progress-table td {
-  border: 1px solid var(--border);
-  padding: 3px 6px;
-  font-size: 11.5px;
-  text-align: center;
-  white-space: nowrap;
-}
-
-#progress-table th { background: #f2f3f5; }
-
-#progress-table input {
-  width: 52px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  text-align: center;
-  font-size: 11.5px;
-  padding: 2px;
-}
-
-.chart-box {
-  background: #fdfdfe;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px;
-  overflow-x: auto;
-}
-
-#progress-canvas { display: block; }
-
-/* ---------- 工事案件一覧ページ ---------- */
-.list-main {
-  flex: 1;
-  padding: 20px 16px 40px;
-  max-width: 1100px;
-  width: 100%;
-  margin: 0 auto;
-}
-
-.list-status {
-  padding: 10px 14px;
-  border-radius: 6px;
-  margin-bottom: 14px;
-  font-size: 13px;
-}
-.status-info { background: #eef2f8; color: #444; }
-.status-error { background: #fdecec; color: #a12b2b; border: 1px solid #f3c0c0; }
-
-.project-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.project-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px 18px;
-  transition: box-shadow 0.15s, border-color 0.15s;
-}
-.project-card:hover {
-  border-color: var(--accent);
-  box-shadow: 0 2px 10px rgba(47, 111, 237, 0.12);
-}
-
-.project-main {
-  flex: 1;
-  min-width: 0;
-  text-decoration: none;
-  color: inherit;
-}
-
-.project-name {
-  font-size: 15px;
-  font-weight: 700;
-  margin-bottom: 5px;
-  color: var(--accent-dark);
-}
-
-.project-info {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-  font-size: 12px;
-  color: #555;
-  margin-bottom: 3px;
-}
-
-.project-period {
-  font-size: 12.5px;
-  color: #333;
-}
-
-.project-updated {
-  font-size: 11px;
-  color: #999;
-  margin-top: 3px;
-}
-
-.project-actions {
-  display: flex;
-  gap: 6px;
-  flex: 0 0 auto;
-}
-.project-actions .btn { text-decoration: none; }
-
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: #777;
-}
-.empty-title { font-size: 16px; font-weight: 700; margin: 0 0 8px; }
-.empty-desc { font-size: 13px; margin: 0; }
-
-/* ---------- 新規工事作成モーダル ---------- */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(20, 22, 28, 0.55);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 40px 16px;
-  overflow-y: auto;
-  z-index: 100;
-}
-.modal-backdrop[hidden] { display: none; }
-
-.modal {
-  background: var(--panel);
-  border-radius: 10px;
-  width: 100%;
-  max-width: 760px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
-}
-
-.modal-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-}
-
-.modal-title { font-size: 16px; margin: 0; }
-
-.modal-close {
-  border: none;
-  background: transparent;
-  font-size: 16px;
-  cursor: pointer;
-  color: #777;
-  padding: 4px 8px;
-}
-.modal-close:hover { color: var(--danger); }
-
-.modal-body {
-  padding: 18px 20px 20px;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px 18px;
-}
-
-.form-field { display: flex; flex-direction: column; gap: 4px; }
-.form-wide { grid-column: span 2; }
-
-.form-label {
-  font-size: 12px;
-  color: #444;
-  font-weight: 600;
-}
-
 .req {
   font-style: normal;
   font-size: 10.5px;
   color: #fff;
   background: var(--danger);
-  border-radius: 3px;
-  padding: 1px 5px;
+  border-radius: 4px;
+  padding: 1px 6px;
   margin-left: 4px;
 }
 
-.form-input {
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 7px 9px;
-  font-size: 13px;
-  font-family: inherit;
-  width: 100%;
-}
-.form-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.15);
-}
-
-.form-error {
-  grid-column: span 2;
-  background: #fdecec;
-  border: 1px solid #f3c0c0;
-  color: #a12b2b;
-  border-radius: 5px;
-  padding: 8px 12px;
-  font-size: 12.5px;
-}
-
-.modal-actions {
-  grid-column: span 2;
+/* =========================================================
+   アプリの枠（上部バー・タブ・本体）
+   ========================================================= */
+.shell {
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  border-top: 1px solid var(--border);
-  padding-top: 14px;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
-.modal-actions .btn { padding: 8px 18px; }
 
-/* ---------- Footer ---------- */
-.hint {
-  padding: 8px 16px 14px;
+.appbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: calc(6px + var(--safe-t)) 8px 6px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+  position: relative;
+  z-index: 20;
+}
+
+.appbar-title {
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+}
+.appbar-name {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.appbar-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11.5px;
-  color: #666;
-  text-align: center;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.conn-online .dot { background: var(--ok); }
+.conn-offline .dot { background: var(--today); }
+
+.appbar-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+.only-wide, .only-xwide { display: none; }
+
+.btn-edit { min-height: 38px; padding: 0 12px; }
+body.edit-mode .btn-edit { background: var(--edit); border-color: var(--edit); color: #fff; }
+body.edit-mode .btn-edit:hover { background: #b45309; }
+body.edit-mode .appbar { box-shadow: inset 0 3px 0 var(--edit); }
+
+.edit-chip { display: none; background: var(--edit-50); color: #92400e; }
+body.edit-mode .edit-chip { display: inline-flex; }
+
+/* タブ：スマホは画面下、広い画面は上部バーの中 */
+.tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  height: calc(var(--tabbar-h) + var(--safe-b));
+  padding-bottom: var(--safe-b);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+}
+.tab .icon { width: 22px; height: 22px; }
+.tab.selected { color: var(--primary); }
+
+/* スマホでは下端のタブのぶんだけ、枠全体を持ち上げておく */
+.shell { padding-bottom: calc(var(--tabbar-h) + var(--safe-b)); }
+
+.shell.no-tabs { padding-bottom: 0; }
+
+.main {
+  flex: 1;
+  min-height: 0;
+  position: relative;
 }
 
-/* ---------- Print ----------
-   印刷は画面の表をそのまま出すのではなく、script.js が #print-root に組み直した
-   専用の紙面を出す。1枚に工種すべてが載り、工期が長いときだけ横に紙が増える。 */
+.page { position: absolute; inset: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
+.page-gantt { display: flex; flex-direction: column; overflow: hidden; }
+.page-pad { padding: 14px 12px 28px; }
+.page-inner { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  padding: 16px;
+}
+.card-title { margin: 0 0 12px; font-size: 15px; font-weight: 700; }
+.card-note { margin: 0 0 12px; font-size: 12.5px; color: var(--text-2); }
+
+/* =========================================================
+   工程表
+   ========================================================= */
+.viewbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  flex: none;
+  scrollbar-width: none;
+}
+.viewbar::-webkit-scrollbar { display: none; }
+.viewbar .btn-sm { flex: none; }
+.viewbar-spacer { flex: 1; min-width: 4px; }
+
+.zoom { display: inline-flex; align-items: center; flex: none; border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; }
+.zoom button {
+  width: 34px; height: 32px; border: none; background: var(--surface);
+  font-size: 18px; line-height: 1; color: var(--text-2);
+}
+.zoom button + button { border-left: 1px solid var(--line-2); }
+.zoom button:disabled { opacity: 0.35; }
+
+.legend { display: none; align-items: center; gap: 12px; font-size: 12px; color: var(--text-2); flex: none; }
+.legend-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.legend-bar { width: 22px; height: 8px; border-radius: 4px; background: var(--plan); }
+.legend-bar.actual { background: var(--actual); height: 6px; }
+.legend-today { width: 2px; height: 14px; background: var(--today); }
+
+.range-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 12px;
+  background: var(--primary-50);
+  color: var(--primary-600);
+  border-bottom: 1px solid #dbeafe;
+  font-size: 12.5px;
+  font-weight: 600;
+  flex: none;
+}
+.range-chip.warn { background: var(--actual-50); color: #b91c1c; border-bottom-color: #fecaca; }
+.range-chip span { flex: 1; min-width: 0; }
+.range-chip button {
+  border: none; background: transparent; color: inherit; font-weight: 700; font-size: 12.5px;
+  padding: 4px 8px; border-radius: 6px; text-decoration: underline;
+}
+
+.gantt {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  position: relative;
+  background: var(--surface);
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.g-canvas { width: max-content; min-width: 100%; position: relative; padding-bottom: 72px; }
+body.edit-mode .g-canvas { padding-bottom: 120px; }
+
+.g-head {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line-2);
+}
+.g-corner {
+  position: sticky;
+  left: 0;
+  z-index: 7;
+  width: var(--label-w);
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 8px 6px;
+  background: var(--surface-2);
+  border-right: 1px solid var(--line-2);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.g-timeline { flex: none; }
+.g-months { display: flex; height: 24px; }
+.g-month {
+  flex: none;
+  border-left: 1px solid var(--line-2);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: clip;
+}
+.g-month > span {
+  position: sticky;
+  left: calc(var(--label-w) + 6px);
+  display: inline-block;
+  padding: 0 6px;
+  line-height: 24px;
+  white-space: nowrap;
+}
+.g-days { display: flex; height: 34px; border-top: 1px solid var(--line); }
+.g-day {
+  flex: none;
+  width: var(--col-w);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid var(--line);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--text);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.g-day small { font-size: 9.5px; font-weight: 500; color: var(--text-3); }
+.g-day.sat { background: var(--sat); color: #1d4ed8; }
+.g-day.sun { background: var(--sun); color: #c2410c; }
+.g-day.today { background: var(--today); color: #fff; }
+.g-day.today small { color: #fff; }
+.gantt.zoom-0[data-view="day"] .g-day small { display: none; }
+.gantt.zoom-0[data-view="day"] .g-day { font-size: 10px; }
+
+.g-body { position: relative; }
+.g-backdrop {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--label-w);
+  pointer-events: none;
+  background-image: linear-gradient(to right, var(--line) 1px, transparent 1px);
+  background-size: var(--col-w) 100%;
+}
+/* 日別ビューは土日に薄く色を敷く（7日周期の背景1枚で描くので、日数が多くても軽い） */
+.gantt[data-view="day"] .g-backdrop {
+  background-image:
+    linear-gradient(to right, var(--line) 1px, transparent 1px),
+    linear-gradient(to right, transparent 0 71.4286%, var(--sat) 71.4286% 85.7143%, var(--sun) 85.7143% 100%);
+  background-size: var(--col-w) 100%, calc(var(--col-w) * 7) 100%;
+  background-position: 0 0, var(--week-off, 0px) 0;
+}
+.g-monthline { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-2); }
+
+.g-today {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--today);
+  opacity: 0.85;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.g-row {
+  display: flex;
+  position: relative;
+  height: var(--row-h);
+  border-bottom: 1px solid var(--line);
+}
+.g-row:hover .g-track { background: rgba(37, 99, 235, 0.035); }
+
+.g-label {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  width: var(--label-w);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 2px 0 2px;
+  background: var(--surface);
+  border-right: 1px solid var(--line-2);
+  min-width: 0;
+}
+.g-label.lv0 { background: #eef2f7; }
+.g-label.lv1 { background: #f8fafc; }
+
+.row-drag {
+  display: none;
+  width: 18px;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  cursor: grab;
+  touch-action: none;
+  flex: none;
+}
+.row-drag .icon { width: 14px; height: 14px; }
+body.edit-mode .row-drag { display: flex; }
+
+.row-twisty {
+  width: 22px;
+  height: 100%;
+  flex: none;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.row-twisty .icon { width: 14px; height: 14px; transition: transform 0.12s; }
+.row-twisty.open .icon { transform: rotate(90deg); }
+.row-twisty.empty { visibility: hidden; }
+
+.row-name {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 2px 2px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-all;
+}
+.row-name.bold { font-weight: 700; }
+.row-name.placeholder { color: var(--text-3); }
+.g-row.collapsed .row-name { font-style: italic; }
+
+/* 状態タグ（未着手／完了） */
+.row-tag {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  margin: 0 2px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: #e9edf3;
+  color: var(--text-2);
+}
+.row-tag.done { background: #dcfce7; color: #15803d; }
+.row-tag.todo { background: #f1f5f9; color: #64748b; box-shadow: inset 0 0 0 1px var(--line-2); }
+.row-tag.doing { background: var(--actual-50); color: #b91c1c; }
+.sheet .row-tag { height: 24px; padding: 0 10px; font-size: 12.5px; }
+.status-line { display: flex; align-items: center; gap: 10px; }
+.status-line .btn { margin-left: auto; }
+
+.row-more {
+  display: none;
+  width: 26px;
+  height: 100%;
+  flex: none;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+}
+/* スマホは幅が足りないので出さない（工種名を押せば同じ画面が開く） */
+@media (min-width: 768px) { body.edit-mode .row-more { display: flex; } }
+
+.g-row.row-dragging { opacity: 0.75; z-index: 5; box-shadow: var(--shadow-2); }
+.g-row.row-dragging .g-label { background: #dbeafe; }
+body.row-drag-active { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+
+.g-track { position: relative; flex: none; height: 100%; }
+body.edit-mode .g-track { cursor: crosshair; }
+body.edit-mode.tool-hand .g-track { cursor: grab; }
+body.edit-mode.tool-label .g-track { cursor: text; }
+/* 塗る・消す道具を選んでいる間は、横になぞる操作をスクロールではなく塗りとして受け取る
+   （縦スクロールはそのまま効く。横に動かしたい時は日付の行か工種名の列をなぞる） */
+body.edit-mode:not(.tool-hand) .g-track { touch-action: pan-y pinch-zoom; }
+
+/* 計画＝上段／実施＝下段 */
+.bar { position: absolute; border-radius: 4px; pointer-events: none; }
+.bar.plan { top: 7px; height: 13px; }
+.bar.actual { bottom: 6px; height: 9px; background: var(--actual); }
+
+.bar-label {
+  position: absolute;
+  top: 6px;
+  height: 15px;
+  line-height: 15px;
+  padding: 0 5px;
+  margin-left: 2px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.1);
+  color: var(--text);
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ghost {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 6px;
+  border: 2px dashed var(--plan);
+  background: rgba(37, 99, 235, 0.14);
+  pointer-events: none;
+  z-index: 3;
+}
+.ghost.actual { border-color: var(--actual); background: rgba(220, 38, 38, 0.14); }
+.ghost.erase { border-color: var(--text-2); background: rgba(100, 116, 139, 0.2); }
+
+.gantt-empty { padding: 40px 16px; text-align: center; color: var(--text-2); font-size: 13px; }
+
+.add-row {
+  position: sticky;
+  left: 0;
+  width: 100%;
+  max-width: calc(100vw - 18px);
+  padding: 10px 12px;
+  display: none;
+}
+body.edit-mode .add-row { display: block; }
+
+/* =========================================================
+   編集ツール（編集中だけ出る）
+   ========================================================= */
+.dock {
+  display: none;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border-top: 1px solid var(--line-2);
+  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.08);
+  z-index: 25;
+}
+/* 工程表タブを開いている編集中だけ出す */
+body.edit-mode.tab-gantt .dock { display: flex; }
+.color-dot {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line-2);
+}
+.dock-main { display: flex; flex-direction: column; gap: 4px; }
+.dock-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.dock-spacer { flex: 1; }
+.dock-b .tool-btn { flex: 1; }
+.dock-main .dock-sep { display: none; }
+.hide-narrow { display: none; }
+.dock-scroll { overflow-x: auto; scrollbar-width: none; }
+.dock-scroll::-webkit-scrollbar { display: none; }
+
+.lane-seg .seg-btn { padding: 0 10px; }
+.lane-seg .seg-btn::before {
+  content: "";
+  width: 14px; height: 6px; border-radius: 3px; background: var(--plan);
+}
+.lane-seg .seg-btn[data-lane="actual"]::before { background: var(--actual); }
+.lane-seg .seg-btn.selected[data-lane="plan"] { color: var(--primary-600); }
+.lane-seg .seg-btn.selected[data-lane="actual"] { color: var(--actual); }
+
+.tool-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 48px;
+  height: 46px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: none;
+}
+.tool-btn:hover { background: rgba(15, 23, 42, 0.05); }
+.tool-btn.selected { background: var(--primary-50); border-color: #bfdbfe; color: var(--primary-600); }
+.tool-btn:disabled { opacity: 0.35; }
+.dock-sep { width: 1px; align-self: stretch; margin: 6px 2px; background: var(--line); flex: none; }
+
+.palette { display: flex; align-items: center; gap: 8px; }
+.swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--line-2);
+  padding: 0;
+  flex: none;
+}
+.swatch.selected { box-shadow: 0 0 0 2px var(--text); }
+.custom-color {
+  width: 34px; height: 34px; padding: 0; border: 1px solid var(--line-2);
+  border-radius: 8px; background: var(--surface); flex: none;
+}
+.dock-note { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+.dock-tip {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 10px; border-radius: 10px;
+  background: var(--edit-50); color: #92400e; font-size: 12px; line-height: 1.5;
+}
+.dock-tip button { border: none; background: transparent; color: inherit; font-weight: 700; padding: 0 4px; }
+
+/* =========================================================
+   シート（下から出るパネル）・メニュー・通知
+   ========================================================= */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.sheet {
+  width: 100%;
+  max-width: 560px;
+  max-height: 88dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: 18px 18px 0 0;
+  box-shadow: var(--shadow-2);
+  padding-bottom: var(--safe-b);
+  animation: sheet-up 0.18s ease-out;
+}
+@keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px 8px 18px;
+  flex: none;
+}
+.sheet-title { flex: 1; margin: 0; font-size: 16px; font-weight: 700; }
+.sheet-body { padding: 4px 18px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+.sheet-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.sheet-actions .btn { flex: 1; }
+.sheet-section { display: flex; flex-direction: column; gap: 8px; }
+.sheet-section-title { font-size: 12px; font-weight: 700; color: var(--text-2); letter-spacing: 0.04em; }
+.form-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn-row .btn { flex: 1 1 auto; }
+.form-error {
+  background: var(--actual-50);
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.switch-row { display: flex; align-items: center; gap: 12px; }
+.switch-row > div { flex: 1; min-width: 0; }
+.switch-row strong { display: block; font-size: 14px; }
+.switch-row span { font-size: 12px; color: var(--text-2); }
+.switch { position: relative; width: 46px; height: 28px; flex: none; }
+.switch input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.switch i { position: absolute; inset: 0; border-radius: 14px; background: var(--line-2); transition: background 0.15s; pointer-events: none; }
+.switch i::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px;
+  border-radius: 50%; background: #fff; box-shadow: var(--shadow-1); transition: transform 0.15s;
+}
+.switch input:checked + i { background: var(--primary); }
+.switch input:checked + i::after { transform: translateX(18px); }
+.switch input:focus-visible + i { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* 工種の詳細：計画と実施の対比 */
+.compare { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.compare-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; font-size: 13px; }
+.compare-row + .compare-row { border-top: 1px solid var(--line); }
+.compare-key { display: inline-flex; align-items: center; gap: 6px; width: 58px; flex: none; font-weight: 700; }
+.compare-key::before { content: ""; width: 14px; height: 6px; border-radius: 3px; background: var(--plan); }
+.compare-key.actual::before { background: var(--actual); }
+.compare-val { flex: 1; min-width: 0; }
+.compare-days { flex: none; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.compare-note { padding: 10px 12px; font-size: 12.5px; background: var(--surface-2); border-top: 1px solid var(--line); color: var(--text-2); }
+.compare-note b { color: var(--text); }
+.compare-note .late { color: var(--actual); font-weight: 700; }
+.compare-note .early { color: var(--primary-600); font-weight: 700; }
+
+.menu { display: flex; flex-direction: column; padding: 0 8px 10px; overflow-y: auto; }
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 50px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 15px;
+  text-align: left;
+  color: var(--text);
+}
+.menu-item:hover { background: var(--surface-2); }
+.menu-item:disabled { opacity: 0.4; }
+.menu-item .icon { color: var(--text-2); }
+.menu-item small { display: block; font-size: 11.5px; color: var(--text-2); }
+.menu-sep { height: 1px; margin: 6px 12px; background: var(--line); }
+
+.help-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; }
+.help-list b { font-weight: 700; }
+
+.toast-wrap {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: calc(var(--tabbar-h) + var(--safe-b) + 14px);
+  z-index: 120;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  padding: 0 12px;
+}
+body.edit-mode.tab-gantt .toast-wrap { bottom: calc(var(--tabbar-h) + var(--safe-b) + 84px); }
+.toast {
+  max-width: 100%;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: var(--shadow-2);
+  animation: sheet-up 0.16s ease-out;
+}
+
+/* =========================================================
+   出来高・工事情報
+   ========================================================= */
+.chart-box { position: relative; width: 100%; height: 260px; }
+.chart-box canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.progress-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.progress-table th, .progress-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+.progress-table thead th { font-size: 12px; color: var(--text-2); font-weight: 700; position: sticky; top: 0; background: var(--surface); }
+.progress-table th.num, .progress-table td.num { text-align: right; width: 34%; }
+.progress-table .input { min-height: 40px; text-align: right; padding: 6px 10px; }
+.key-plan, .key-actual { display: inline-flex; align-items: center; gap: 6px; }
+.key-plan::before, .key-actual::before { content: ""; width: 14px; height: 4px; border-radius: 2px; background: var(--plan); }
+.key-actual::before { background: var(--actual); }
+
+.info-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+
+/* =========================================================
+   工事一覧
+   ========================================================= */
+.list-wrap { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; }
+.list-main { max-width: 1040px; margin: 0 auto; padding: 14px 12px calc(96px + var(--safe-b)); }
+.brand { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding-left: 6px; }
+.brand-mark {
+  width: 34px; height: 34px; border-radius: 10px; flex: none;
+  background: linear-gradient(135deg, #2563eb, #1e40af);
+  display: flex; align-items: center; justify-content: center; color: #fff;
+}
+.brand-name { font-size: 16px; font-weight: 800; letter-spacing: 0.02em; }
+.brand-sub { font-size: 11.5px; color: var(--text-2); }
+
+.list-tools { display: flex; gap: 8px; margin-bottom: 12px; }
+.list-tools .input { min-height: 42px; }
+.list-status { padding: 12px 14px; border-radius: 12px; margin-bottom: 12px; font-size: 13.5px; }
+.status-info { background: #e9edf3; color: var(--text-2); }
+.status-error { background: var(--actual-50); color: #b91c1c; border: 1px solid #fecaca; }
+
+.project-list { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.project-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-1);
+  padding: 14px 14px 12px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+}
+.project-card:hover { border-color: #93c5fd; box-shadow: var(--shadow-2); }
+.project-top { display: flex; align-items: flex-start; gap: 8px; }
+.project-name { flex: 1; min-width: 0; font-size: 15.5px; font-weight: 700; line-height: 1.4; }
+.project-meta { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; color: var(--text-2); }
+.project-meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-bar { height: 6px; border-radius: 3px; background: #e9edf3; overflow: hidden; }
+.project-bar i { display: block; height: 100%; border-radius: 3px; background: var(--primary); }
+.project-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-2); }
+.status-chip.before { background: #e9edf3; color: var(--text-2); }
+.status-chip.running { background: var(--primary-50); color: var(--primary-600); }
+.status-chip.done { background: #dcfce7; color: #15803d; }
+.project-del { position: relative; z-index: 2; margin: -6px -6px 0 0; }
+.project-link { position: absolute; inset: 0; border-radius: 14px; z-index: 1; }
+
+.empty-state { text-align: center; padding: 56px 20px; color: var(--text-2); }
+.empty-title { font-size: 16px; font-weight: 700; margin: 0 0 6px; color: var(--text); }
+.empty-desc { font-size: 13.5px; margin: 0 0 16px; }
+
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(18px + var(--safe-b));
+  z-index: 40;
+  min-height: 54px;
+  padding: 0 20px;
+  border-radius: 27px;
+  box-shadow: var(--shadow-2);
+  font-size: 15px;
+}
+
+/* =========================================================
+   広い画面（タブレット横・PC）
+   ========================================================= */
+@media (min-width: 768px) {
+  :root { --label-w: 250px; --row-h: 36px; --col-w: 26px; }
+
+  .appbar { padding: 8px 14px; gap: 8px; }
+  .appbar-name { font-size: 16px; }
+  .only-wide { display: inline-flex; }
+  .only-narrow { display: none !important; }
+
+  .tabs {
+    position: static;
+    height: auto;
+    padding: 3px;
+    border: none;
+    border-radius: 10px;
+    background: #e9edf3;
+    flex: none;
+    margin: 0 6px;
+  }
+  .tab {
+    flex: none;
+    flex-direction: row;
+    gap: 6px;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-2);
+  }
+  .tab .icon { width: 16px; height: 16px; }
+  .tab.selected { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }
+  .shell { padding-bottom: 0; }
+
+  .viewbar { padding: 8px 14px; }
+  .legend { display: inline-flex; }
+
+  .row-name { font-size: 13px; -webkit-line-clamp: 1; word-break: normal; white-space: nowrap; text-overflow: ellipsis; display: block; }
+  .bar.plan { top: 5px; height: 12px; }
+  .bar.actual { bottom: 5px; height: 9px; }
+  .bar-label { top: 4px; height: 14px; line-height: 14px; }
+
+  /* 編集ツールは画面下に浮かせる */
+  .dock {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    max-width: calc(100vw - 32px);
+    border: 1px solid var(--line-2);
+    border-radius: 16px;
+    box-shadow: var(--shadow-2);
+    padding: 8px 12px;
+  }
+  .dock-tip { max-width: 560px; }
+  /* 1列に並べ直す：［計画/実施］｜道具｜元に戻す・工種追加 */
+  .dock-main { flex-direction: row; align-items: center; gap: 6px; }
+  .dock-a, .dock-b { display: contents; }
+  .dock-spacer { display: none; }
+  .dock-main .dock-sep { display: block; }
+  .dock-main .lane-seg { order: 1; }
+  .dock-main .dock-sep-a { order: 2; }
+  .dock-b .tool-btn { order: 3; flex: none; }
+  .dock-main .dock-sep-b { order: 4; }
+  .dock-main .dock-end { order: 5; }
+  .hide-narrow { display: inline; }
+
+  .backdrop { align-items: center; padding: 24px; }
+  .sheet { border-radius: 18px; max-height: 86vh; }
+  .sheet-actions .btn { flex: none; }
+  .form-grid.cols-2, .info-grid { grid-template-columns: 1fr 1fr; }
+  .span-2 { grid-column: span 2; }
+
+  .toast-wrap, body.edit-mode.tab-gantt .toast-wrap { bottom: 28px; }
+  body.edit-mode.tab-gantt .toast-wrap { bottom: 104px; }
+  .page-pad { padding: 20px 20px 40px; }
+  .progress-layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); gap: 14px; align-items: start; }
+  .chart-box { height: 320px; }
+
+  .list-main { padding: 22px 20px 60px; }
+  .project-list { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  .fab { display: none; }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  :root { --label-w: 200px; }
+}
+
+/* 印刷・Excelのボタンは、上部バーに余裕がある幅でだけ並べる（狭い時は「…」メニューから） */
+@media (min-width: 1024px) {
+  .only-xwide { display: inline-flex; }
+}
+
+/* スマホを横向きにした時：縦が足りないので、下のタブと編集ツールを薄くする */
+@media (max-width: 767px) and (max-height: 500px) {
+  :root { --tabbar-h: 42px; --row-h: 36px; }
+  .tab { flex-direction: row; gap: 6px; font-size: 12px; }
+  .tab .icon { width: 18px; height: 18px; }
+  .dock { padding: 4px 8px; }
+  .dock-main { flex-direction: row; align-items: center; overflow-x: auto; scrollbar-width: none; }
+  .dock-main::-webkit-scrollbar { display: none; }
+  .dock-a, .dock-b { flex: none; }
+  .dock-b .tool-btn { flex: none; }
+  .dock-spacer { display: none; }
+  .tool-btn { height: 40px; }
+  .dock-tip { display: none; }
+}
+
+/* =========================================================
+   印刷
+   画面の表をそのまま出すのではなく、script.js が #print-root に組み直した
+   専用の紙面を出す。1枚に工種すべてが載り、工期が長いときだけ横に紙が増える。
+   ========================================================= */
 #print-root { display: none; }
 
 @media print {
   @page { size: A3 landscape; margin: 8mm; }
-  html, body { background: #fff; }
+  html, body { height: auto; background: #fff; overflow: visible; }
 
-  /* 印刷用DOMを組み終えた時だけ画面用UIを伏せる（組めなかった時は従来通り出す） */
-  body.printing > .app { display: none !important; }
+  body.printing > .shell,
+  body.printing > .backdrop,
+  body.printing > .toast-wrap { display: none !important; }
   body.printing #print-root { display: block; }
   .no-print { display: none !important; }
+
+  #print-root, #print-root * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  #print-root { font-family: "Yu Gothic", "Meiryo", "Hiragino Sans", "Segoe UI", sans-serif; }
 
   .print-page {
     position: relative;
@@ -898,11 +1088,7 @@ body.row-drag-active {
   .print-page:last-child { page-break-after: auto; break-after: auto; }
 
   /* 高さを固定しておく。ここが伸び縮みすると script.js 側の行数計算とズレる */
-  .print-head {
-    height: 26mm;
-    overflow: hidden;
-    box-sizing: border-box;
-  }
+  .print-head { height: 26mm; overflow: hidden; box-sizing: border-box; }
 
   .print-title {
     font-size: 13pt;
@@ -910,6 +1096,7 @@ body.row-drag-active {
     letter-spacing: 0.35em;
     text-align: center;
     margin: 0 0 1.5mm;
+    line-height: 1.3;
   }
 
   .print-meta {
@@ -917,6 +1104,7 @@ body.row-drag-active {
     grid-template-columns: repeat(4, 1fr);
     gap: 0.6mm 3mm;
     font-size: 7pt;
+    line-height: 1.35;
     margin-bottom: 1.2mm;
   }
   .print-meta-item {
@@ -939,23 +1127,25 @@ body.row-drag-active {
   .print-subhead {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    gap: 6mm;
     font-size: 7pt;
+    line-height: 1.35;
     margin-bottom: 1mm;
   }
+  .print-legend { display: flex; align-items: center; gap: 4mm; margin-left: auto; }
+  .print-legend span { display: inline-flex; align-items: center; gap: 1.2mm; }
+  .print-legend i { display: inline-block; width: 7mm; height: 1.6mm; background: #2563eb; }
+  .print-legend i.actual { background: #dc2626; height: 1.2mm; }
 
-  .print-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-  }
+  .print-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
   .print-table th, .print-table td {
     border: 0.2mm solid #9aa0a6;
     padding: 0;
     text-align: center;
     line-height: 1;
   }
-  /* 見出しと項目欄ははみ出させない。日付セルだけは作業名がはみ出せるようにする
-     （ここを hidden にすると、数mmしかないセル幅で作業名が切れてしまう） */
+  /* 見出しと項目欄ははみ出させない。日付セルだけは作業名がはみ出せるようにする */
   .print-table th { overflow: hidden; }
   .print-table .p-th { background: #eceef1; font-weight: 600; }
   .print-table .p-month { white-space: nowrap; }
@@ -969,38 +1159,43 @@ body.row-drag-active {
   .print-table td.p-label.lv0 { background: #eef0f3; }
   .print-table td.p-label.lv1 { background: #f6f7f8; }
   .print-table .p-bold { font-weight: 700; }
-  .print-table .p-cell { position: relative; }
-  .print-table .td-sat { background: var(--sat); }
-  .print-table .td-sun { background: var(--sun); }
+  .p-tag {
+    display: inline-block;
+    margin-left: 1mm;
+    padding: 0 0.8mm;
+    border: 0.2mm solid #94a3b8;
+    border-radius: 0.8mm;
+    font-size: 0.8em;
+    font-weight: 600;
+    color: #475569;
+  }
+  .p-tag.done { border-color: #16a34a; color: #15803d; }
+  /* 1セルの中に、上段＝計画・下段＝実施の帯を背景2枚で描く */
+  .print-table .p-cell {
+    position: relative;
+    background-repeat: no-repeat;
+    background-size: 100% 40%, 100% 26%;
+    background-position: 0 14%, 0 90%;
+  }
+  .print-table .td-sat { background-color: #dcebff; }
+  .print-table .td-sun { background-color: #ffe6d2; }
 
   /* 作業名はセル幅（数mm）に収まらないので、はみ出して表示する。
      紙の端で切れないよう、向きは script.js 側で決めてクラスを付けている。 */
   .p-bar-label {
     position: absolute;
     left: 0.3mm;
-    top: 50%;
+    top: 30%;
     transform: translateY(-50%);
     white-space: nowrap;
     background: rgba(255, 255, 255, 0.88);
     padding: 0 0.4mm;
     z-index: 2;
   }
-  /* 右に余白が無い時は左向きに伸ばす */
-  .p-bar-label-left {
-    left: auto;
-    right: 0.3mm;
-  }
-  /* どちらにも収まらない時だけ「…」で締める */
-  .p-bar-label-clip {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  .p-bar-label-left { left: auto; right: 0.3mm; }
+  .p-bar-label-clip { overflow: hidden; text-overflow: ellipsis; }
 
-  .print-progress-table {
-    border-collapse: collapse;
-    font-size: 8pt;
-    margin-bottom: 4mm;
-  }
+  .print-progress-table { border-collapse: collapse; font-size: 8pt; margin-bottom: 4mm; }
   .print-progress-table th, .print-progress-table td {
     border: 0.2mm solid #9aa0a6;
     padding: 1mm 2mm;
@@ -1011,11 +1206,5 @@ body.row-drag-active {
   .print-chart { max-width: 100%; height: auto; }
 }
 
-@media (max-width: 700px) {
-  .sh-grid { grid-template-columns: repeat(2, 1fr); }
-  .sh-wide, .sh-period { grid-column: span 2; }
-  .modal-body { grid-template-columns: 1fr; }
-  .form-wide, .form-error, .modal-actions { grid-column: span 1; }
-  .project-card { flex-direction: column; align-items: stretch; }
-  .toolbar-title { max-width: 100%; }
-}
+/* シートを開いている間は、通知をシートのボタンに重ねず上に出す */
+.backdrop:not([hidden]) ~ .toast-wrap { bottom: auto !important; top: calc(12px + var(--safe-t)); }

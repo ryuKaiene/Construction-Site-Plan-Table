@@ -1,0 +1,14 @@
+{
+  "name": "工事工程表",
+  "short_name": "工程表",
+  "description": "工事の計画と実施を見比べられる工程表",
+  "lang": "ja",
+  "start_url": "index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f5f9",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
