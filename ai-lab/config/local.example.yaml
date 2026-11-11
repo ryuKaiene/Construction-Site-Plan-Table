@@ -1,6 +1,0 @@
-# このPCだけの設定。/setup が local.yaml として作成する（Git管理外）。
-vault_dir: "/path/to/ObsidianVault"        # 保管庫の実体パス（iCloud内）
-lab_dir: "/path/to/ObsidianVault/AI-Lab"   # 書き込みを許す唯一のフォルダ
-meeting_notes_dir: ""                       # 1on1記録などのフォルダ（保管庫内、任意）
-notebooklm: true                            # NotebookLM連携を使うか
-last_discover_at: ""                        # 前回の発見実行日時（差分読み込みの基準）
